@@ -1,0 +1,138 @@
+Project 3 - High Level Plan  -  ASG + ALB + CloudWatch + SNS
+-------------------------------------------------------------
+
+1. Reuse existing VPC (My-VPC-02).
+
+2. Verify DNS Resolution and DNS Hostnames are enabled on the VPC.
+
+3. Verify Public-Subnet-02 and Public-Subnet-03 are available in different Availability Zones.
+
+4. Verify Internet Gateway and Route Table configuration.
+
+5. Enable Auto Assign Public IP for both public subnets.
+
+6. Create Key Pair (KP3-ASG).
+
+7. Create Load Balancer Security Group (ALB-SG).
+
+8. Create Auto Scaling Security Group (ASG-SG).
+
+9. Create Launch Template.
+
+10. Configure Launch Template with:
+    - Amazon Linux 2023
+    - t2.micro
+    - 30 GB Root Volume
+    - KP3-ASG Key Pair
+    - ASG-SG Security Group
+
+11. Add User Data to automatically install:
+    - Apache
+    - Java
+    - Python
+    - Stress
+    - Telnet
+
+12. Configure Apache to display the EC2 hostname on the web page.
+
+13. Create Target Group.
+
+14. Configure Target Group Health Checks.
+
+15. Create Application Load Balancer (ALB).
+
+16. Attach ALB to Public-Subnet-02 and Public-Subnet-03.
+
+17. Associate ALB with the Target Group.
+
+18. Create Auto Scaling Group (ASG).
+
+19. Attach Launch Template to ASG.
+
+20. Attach Target Group to ASG.
+
+21. Configure ASG Capacity:
+    - Minimum Capacity = 2
+    - Desired Capacity = 2
+    - Maximum Capacity = 4
+
+22. Verify ASG launches two EC2 instances automatically.
+
+23. Verify EC2 instances are distributed across two Availability Zones.
+
+24. Verify both EC2 instances become Healthy in the Target Group.
+
+25. Verify application is accessible using the ALB DNS URL.
+
+26. Refresh the ALB DNS URL multiple times and verify traffic is routed between both EC2 instances.
+
+27. Configure Scale-Out Policy.
+
+28. Set CPU Utilization > 80% for 5 minutes to launch one additional EC2 instance.
+
+29. Configure Scale-In Policy.
+
+30. Set CPU Utilization < 30% for 10 minutes to terminate one EC2 instance.
+
+31. Create SNS Topic.
+
+32. Subscribe email address to the SNS Topic.
+
+33. Confirm SNS subscription from email.
+
+34. Create CloudWatch Alarm.
+
+35. Set CPU Utilization > 80% for 5 minutes.
+
+36. Configure Alarm Action to send SNS email notification.
+
+37. Verify SNS email notification is received successfully.
+
+38. Generate CPU load using the Stress utility.
+
+39. Monitor CloudWatch metrics.
+
+40. Verify ASG launches EC2-3 when CPU remains above 80%.
+
+41. Verify EC2-3 is automatically registered with the Target Group.
+
+42. Verify EC2-3 becomes Healthy in the Target Group.
+
+43. Verify ALB automatically routes traffic to EC2-3.
+
+44. Continue testing and verify EC2-4 creation if required.
+
+45. Stop the workload.
+
+46. Verify CPU utilization drops below the configured threshold.
+
+47. Verify ASG automatically removes additional EC2 instances.
+
+48. Confirm the environment returns to the Desired Capacity of 2 instances.
+
+49. Document:
+    - Architecture
+    - Auto Scaling Behaviour
+    - Load Balancing Behaviour
+    - CloudWatch Monitoring
+    - SNS Alerting
+
+50. Delete Auto Scaling Group.
+
+51. Delete Application Load Balancer.
+
+52. Delete Target Group.
+
+53. Delete Launch Template.
+
+54. Delete CloudWatch Alarm.
+
+55. Delete SNS Topic.
+
+56. Delete Security Groups created for the project.
+
+57. Delete Key Pair (KP3-ASG).
+
+58. Verify no unnecessary billable resources remain.
+
+59. Clean up all resources to avoid AWS charges.
