@@ -1,0 +1,121 @@
+AWS Networking Concepts - Beginner Notes
+-----------------------------------------
+
+VPC (Virtual Private Cloud)
+VPC is your own private network inside AWS where you deploy and manage cloud resources such as EC2, RDS, Load Balancers, etc.
+Example: VPC: 10.0.0.0/16
+A VPC can contain multiple subnets.
+
+Subnet
+A subnet is a smaller network created inside a VPC.
+
+Example: VPC: 10.0.0.0/16
+Public Subnet: 10.0.1.0/24
+Private Subnet: 10.0.2.0/24
+
+Types of Subnets:
+Public Subnet:
+Has access to the Internet.
+Used for Web Servers, Bastion Hosts, Load Balancers.
+
+Private Subnet:
+No direct Internet access.
+Used for Databases, Application Servers, Internal Services.
+
+Security Group :
+A Security Group acts as a firewall for an EC2 instance.
+Controls:  Inbound Traffic And Outbound Traffic
+
+Example:
+SSH Port 22 from your IP
+Oracle Port 1521 from Application Servers
+
+Simple Understanding: Security Group = EC2 Firewall
+
+Route Table :
+
+A Route Table is not a firewall.
+A Route Table decides where network traffic should go.
+
+Example:
+Destination: 10.0.0.0/16 → Local
+Destination: 0.0.0.0/0 → Internet Gateway
+
+Simple Understanding:  
+                     Route Table = Traffic Direction Rules
+					 Security Group = Firewall Rules
+
+Internet Gateway (IGW) :
+Internet Gateway provides Internet connectivity to a VPC.
+Without an Internet Gateway, resources cannot access the Internet even if they have a Public IP.
+Internet → Internet Gateway → Route Table → Subnet → EC2
+
+Public Subnet Requirements
+--------------------------
+To make a subnet public:
+
+Attach an Internet Gateway to the VPC.
+Create a Route Table entry:
+0.0.0.0/0 → Internet Gateway
+	Associate the Route Table with the Subnet.
+	Enable Public IP for the EC2 Instance.
+
+Result: Internet ↔ EC2
+
+Private Subnet Requirements :
+-----------------------------
+Private subnet route table contains only:
+10.0.0.0/16 → Local
+There is no route to the Internet Gateway.
+
+Result:
+Internet Access ❌
+VPC Internal Communication ✅
+
+NACL (Network Access Control List)
+NACL is a firewall at the subnet level.
+
+Simple Understanding:
+NACL = Subnet Firewall
+Security Group = EC2 Firewall
+Traffic Flow Inside AWS
+
+Internet
+
+↓
+
+Internet Gateway
+
+↓
+
+Route Table
+
+↓
+
+NACL
+
+↓
+
+Subnet
+
+↓
+
+Security Group
+
+↓
+
+EC2 Instance
+
+                 Internet
+                     |
+             Internet Gateway
+                     |
+                 AWS Router
+                     |
+              Route Table Rules
+                     |
+          -------------------------
+          |                       |
+     Public Subnet         Private Subnet
+          |                       |
+        EC2                     Oracle
