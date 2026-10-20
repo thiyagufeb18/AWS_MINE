@@ -1,0 +1,197 @@
+🚀 Project 3 - ASG + ALB + CloudWatch + SNS (Final Design)
+============================================================
+
+VPC Name : My-VPC-02
+VPC CIDR : 10.0.0.0/16
+
+                                     INTERNET USERS
+                                            |
+                                            |
+                              +-----------------------------+
+                              | Application Load Balancer   |
+                              |           (ALB)             |
+                              +-----------------------------+
+                                            |
+                                            |
+                              +-----------------------------+
+                              |        Target Group         |
+                              |           HTTP:80           |
+                              +-----------------------------+
+                                            |
+                   =====================================================
+                   |                                                  |
+                   |                                                  |
+          +-------------------+                             +-------------------+
+          |      EC2-1        |                             |      EC2-2        |
+          | Apache            |                             | Apache            |
+          | Java              |                             | Java              |
+          | Python            |                             | Python            |
+          | Stress            |                             | Stress            |
+          | Telnet            |                             | Telnet            |
+          | Root Vol : 30 GB  |                             | Root Vol : 30 GB  |
+          +-------------------+                             +-------------------+
+
+             Public-Subnet-02                               Public-Subnet-03
+                10.0.1.0/24                                   10.0.3.0/24
+                us-east-1d                                    us-east-1a
+
+                   \                                                /
+                    \                                              /
+                     \                                            /
+                      ============================================
+                                      |
+                                      |
+                       +-------------------------------+
+                       |       Auto Scaling Group      |
+                       |            (ASG)             |
+                       +-------------------------------+
+                       | Min Capacity     : 2         |
+                       | Desired Capacity : 2         |
+                       | Max Capacity     : 4         |
+                       +-------------------------------+
+                                      |
+                                      |
+                       +-------------------------------+
+                       |       Launch Template         |
+                       +-------------------------------+
+                       | Amazon Linux 2023             |
+                       | Root Volume : 30 GB           |
+                       | Key Pair : KP3-ASG            |
+                       | Security Group : ASG-SG       |
+                       +-------------------------------+
+                                      |
+           ----------------------------------------------------------------
+           |               |                |              |               |
+           |               |                |              |               |
+         Apache          Java            Python         Stress          Telnet
+
+
+                                      |
+                                      |
+                         +---------------------------+
+                         |        CloudWatch         |
+                         +---------------------------+
+                                      |
+            --------------------------------------------------------------
+            |                                                            |
+            |                                                            |
+    CPU > 80% for 5 mins                                        CPU > 90% for 5 mins
+            |                                                            |
+            |                                                            |
+      Scale-Out Policy                                              SNS Alert
+            |                                                            |
+            |                                                            |
+     Create New EC2                                             Email Notification
+            |                                                            |
+            |                                                            |
+            v                                                            v
+
+     +-------------------+                                     📧 Email Alert
+     |      EC2-3        |                                     📱 Mobile Alert
+     +-------------------+
+     | AZ: us-east-1d OR |
+     | AZ: us-east-1a    |
+     +-------------------+
+
+            |
+            |
+    CPU still > 80%
+            |
+            |
+     Create EC2-4
+            |
+            v
+
+     Maximum Instances = 4
+
+
+==========================================================================
+
+SCALE-OUT LOGIC
+
+Initial State
+
+us-east-1d                                  us-east-1a
+---------                                   ---------
+EC2-1                                       EC2-2
+
+Total = 2 Instances
+
+
+CPU > 80%
+
+us-east-1d                                  us-east-1a
+---------                                   ---------
+EC2-1                                       EC2-2
+EC2-3
+
+Total = 3 Instances
+
+
+CPU still > 80%
+
+us-east-1d                                  us-east-1a
+---------                                   ---------
+EC2-1                                       EC2-2
+EC2-3                                       EC2-4
+
+Total = 4 Instances
+
+
+==========================================================================
+
+SCALE-IN LOGIC
+
+CPU < 30%
+for 10 Minutes
+
+        |
+        |
+      ASG
+        |
+        |
+Remove Extra EC2
+        |
+        v
+
+Back To
+
+EC2-1
+EC2-2
+
+==========================================================================
+
+PRIVATE SUBNET (NOT USED IN PROJECT-3)
+
+Private-Subnet-02
+CIDR : 10.0.2.0/24
+AZ   : us-east-1d
+
+Reserved For:
+- RDS
+- Database Servers
+- Future Private EC2 Projects
+
+==========================================================================
+
+PROJECT OUTCOME
+
+✓ Custom VPC
+✓ Multi-AZ Architecture
+✓ 2 Public Subnets
+✓ Application Load Balancer
+✓ Target Group
+✓ Launch Template
+✓ Auto Scaling Group
+✓ CloudWatch Monitoring
+✓ SNS Email Alert
+✓ Mobile Notification
+✓ Automatic Apache Installation
+✓ Automatic Java Installation
+✓ Automatic Python Installation
+✓ Automatic Stress Installation
+✓ Automatic Telnet Installation
+✓ Scale-Out Tested
+✓ Scale-In Tested
+✓ High Availability
+✓ Production Style Architecture
