@@ -1,0 +1,131 @@
+
+✅ AWS NETWORK PROJECT - 1 (High-Level Steps)
+----------------------------------------------
+
+Project Architecture
+
+Internet
+
+↓
+
+Internet Gateway (My-IGW-01)
+
+↓
+
+Route Table (My-Public-RT-01)
+
+↓
+
+Public Subnet (Public-Subnet-01)
+
+↓
+
+Security Group (SSH Port 22)
+
+↓
+
+EC2 Instance (My-Linux-Server-01)
+
+↓
+
+EBS Storage (8 GB)
+
+↓
+
+PuTTY / EC2 Instance Connect
+
+↓
+
+ec2-user Login
+
+1) Create Custom VPC ✅
+Created Custom VPC: My-VPC-01
+Assigned CIDR: 10.0.0.0/16
+Created a dedicated private network for the project.
+
+2) Create Public Subnet ✅
+Created Subnet: Public-Subnet-01
+Assigned CIDR: 10.0.1.0/24
+Created the subnet inside My-VPC-01
+
+3) Create Internet Gateway ✅
+Created Internet Gateway: My-IGW-01
+Dedicated the Internet Gateway to the custom VPC
+
+4) Attach Internet Gateway to VPC ✅
+Attached My-IGW-01 to My-VPC-01
+Enabled the VPC to communicate with the Internet
+
+5) Create Route Table ✅
+Created Route Table: My-Public-RT-01
+Created custom routing rules for the VPC
+
+6) Add Internet Route ✅
+Added Route: 0.0.0.0/0 → My-IGW-01
+Configured Internet-bound traffic to use the Internet Gateway
+
+7) Associate Route Table with Subnet ✅
+Associated Public-Subnet-01
+With My-Public-RT-01
+Result: Public-Subnet-01 became a Public Subnet
+
+8) Launch EC2 Instance ✅
+Created EC2 Instance: My-Linux-Server-01
+Selected Amazon Linux 2023
+Selected t3.micro
+Deployed inside Public-Subnet-01
+
+9) Configure Security Group ✅
+Configured Security Group
+Allowed SSH access on Port 22
+Purpose:
+Enable remote login to the Linux server
+
+10) Assign Public IP ✅
+Enabled Auto Assign Public IP
+EC2 received:
+Public IP: 54.226.249.184
+Private IP: 10.0.1.35
+
+11) Verify EBS Storage ✅
+Verified Root Volume
+Storage Size: 8 GB
+Confirmed EBS attachment
+
+12) Configure SSH Access ✅
+Downloaded AWS Key Pair
+Converted my-keypair-01.pem to my-keypair-01.ppk
+Configured PuTTY authentication
+
+13) Access EC2 using PuTTY ✅
+Configured:
+Host: 54.226.249.184
+User: ec2-user
+Key: my-keypair-01.ppk
+Successfully logged into the Linux server
+
+14) Enable Public DNS ✅
+Enabled DNS Hostnames in My-VPC-01
+Generated Public DNS for the EC2 instance
+Example: Public IP: 54.226.249.184
+Public DNS: ec2-54-226-249-184.compute-1.amazonaws.com
+
+15) Verify End-to-End Connectivity ✅
+AWS EC2 Instance Connect → Successful
+PuTTY using Public IP → Successful
+Public DNS generated successfully
+Linux login verified
+Storage verified
+
+✅ Project Outcome
+
+✅ Custom VPC Created
+✅ Public Subnet Created
+✅ Internet Gateway Configured
+✅ Route Table Configured
+✅ EC2 Launched
+✅ Public IP Assigned
+✅ Public DNS Enabled
+✅ SSH Access Verified
+✅ Linux Login Verified
+✅ EBS Storage Verified
