@@ -1,0 +1,407 @@
+AWS Network Project - 2 🔴 Public Subnet + Private Subnet + Bastion Host Architecture
+
+📌  Project Objective : Build a secure AWS network architecture where:
+
+⬛ Bastion Host is accessible from the Internet.
+⬛ Private Server is not accessible from the Internet.
+⬛ Private Server can only be accessed through the Bastion Host.
+
+
+Internet
+    ↓
+My-IGW-02
+(Internet Gateway)
+    ↓
+Public-RT-02
+(Public Route Table)
+    ↓
+Public-Subnet-02
+(10.0.1.0/24)
+    ↓
+Bastion-Server-01
+Private IP : 10.0.1.248
+Public IP  : 52.55.23.243
+
+    ↓ SSH
+
+Private-RT-02
+(Private Route Table)
+    ↓
+Private-Subnet-02
+(10.0.2.0/24)
+    ↓
+Private-Server-01
+Private IP : 10.0.2.242
+Public IP  : Not Assigned
+
+
+
+1) Create Custom VPC ✅ 
+
+VPC Name: My-VPC-02
+CIDR: 10.0.0.0/16
+
+Purpose: Create a dedicated AWS network for the project.
+
+Activities Performed:
+
+• Created My-VPC-02
+• Assigned CIDR 10.0.0.0/16
+• Created dedicated network space for Public and Private Subnets
+
+Outcome:
+✔ Custom VPC created successfully.
+
+📝 Notes:
+VPC acts as the network boundary.
+All resources in the project are deployed inside this VPC.
+
+2) Create Public Subnet ✅
+
+Subnet Name: Public-Subnet-02
+CIDR: 10.0.1.0/24
+
+Purpose: Host Internet-facing resources.
+
+Activities Performed:
+
+• Created Public-Subnet-02
+• Assigned CIDR 10.0.1.0/24
+• Reserved subnet for Bastion Host deployment
+
+Outcome:
+✔ Public Subnet created successfully.
+
+3) Create Private Subnet ✅
+
+Subnet Name: Private-Subnet-02
+CIDR: 10.0.2.0/24
+
+Purpose: Host internal resources.
+
+Activities Performed:
+
+• Created Private-Subnet-02
+• Assigned CIDR 10.0.2.0/24
+• Reserved subnet for Private Server deployment
+
+Outcome:
+✔ Private Subnet created successfully
+
+
+4) Create Internet Gateway ✅
+
+Internet Gateway Name: My-IGW-02
+
+Purpose: Provide Internet connectivity to My-VPC-02.
+
+Activities Performed:
+• Created My-IGW-02
+
+Outcome:
+✔ Internet Gateway created successfully.
+
+5) Attach Internet Gateway to VPC ✅
+
+Purpose: Connect the VPC to the Internet.
+
+Activities Performed:
+• Attached My-IGW-02 to My-VPC-02
+
+Outcome:
+✔ Internet Gateway attached successfully
+
+🟩 Result:
+
+Internet
+    ↓
+My-IGW-02
+    ↓
+My-VPC-02
+
+6) Create Public Route Table ✅
+
+Route Table Name: Public-RT-02
+Purpose: Provide Internet routing for Public Subnet resources.
+
+Activities Performed:
+• Created Public-RT-02
+
+Outcome:
+✔ Public Route Table created successfully.
+
+7) Configure Public Route Table ✅
+
+Purpose: Enable Internet communication for Public Subnet resources.
+
+Activities Performed:
+• Added route 0.0.0.0/0 → My-IGW-02
+
+Routes Configured:
+10.0.0.0/16 → local
+0.0.0.0/0   → My-IGW-02
+
+Outcome:
+✔ Internet Route configured successfully
+✔ Public Internet access enabled
+
+Notes:
+0.0.0.0/0 represents all Internet destinations.
+
+8) Associate Public Route Table ✅
+
+Association: 
+
+Public-Subnet-02
+
+↓
+
+Public-RT-02
+
+Purpose: Make Public-Subnet-02 an Internet-accessible subnet.
+
+Outcome:
+✔ Public Route Table associated successfully
+✔ Public-Subnet-02 became a Public Subnet
+
+Important Learning ❗
+
+A Public Subnet requires:
+-Internet Gateway
+-Internet Route
+- Route Table Association
+
+9) Create Private Route Table ✅
+
+Route Table Name: Private-RT-02
+
+Purpose: Create dedicated routing for the Private Subnet.
+
+Activities Performed:
+• Created Private-RT-02
+• Retained only the local route
+
+Routes Configured:
+10.0.0.0/16 → local (Only local route).
+
+Outcome: 
+✔ Private Route Table created successfully
+
+Important: No Internet Route was configured.
+
+10) Associate Private Route Table ✅
+
+Association: Private-Subnet-02
+
+↓
+
+Private-RT-02
+
+Purpose: Ensure the Private Subnet remains isolated from direct Internet access.
+
+Outcome:
+✔ Private Route Table associated successfully.
+✔ Private-Subnet-02 became a Private Subnet.
+✔ No direct Internet access.
+
+11) Enable DNS Hostnames ✅
+
+Purpose: Allow AWS to generate Public DNS names for public resources.
+
+Activities Performed:
+• Enabled DNS Resolution
+• Enabled DNS Hostnames
+
+Outcome:
+✔ Public DNS generation enabled.
+
+
+12) Create Bastion Host Key Pair ✅
+
+Key Pair: KP1-Public
+Purpose: Provide secure authentication to Bastion Host.
+
+Outcome:
+✔ KP1-Public key pair created successfully.
+
+13) Launch Bastion Host ✅
+
+Server Name: Bastion-Server-01
+Subnet: Public-Subnet-02
+Private IP: 10.0.1.248
+Public IP: 52.55.23.243
+Key Pair: KP1-Public
+Security Group: SG1-PUBLIC
+Security Rule: SSH Port 22
+Source: My IP / Internet
+
+Activities Performed:
+• Launched Bastion Host
+• Assigned Public IP
+• Generated Public DNS
+• Configured SSH access
+
+Outcome:
+✔ Bastion Host deployed successfully
+✔ Internet access verified
+✔ SSH access verified.
+
+14) Create Private Server Key Pair ✅
+
+Key Pair: KP2-Private
+Purpose: Provide secure authentication to Private Server.
+
+Outcome:
+✔ KP2-Private key pair created successfully.
+
+15) Launch Private Server ✅
+
+Server Name: Private-Server-01
+Subnet: Private-Subnet-02
+Private IP: 10.0.2.242
+Public IP: Not Assigned
+Key Pair: KP2-Private
+Security Group: SG2-PRIVATE
+Security Rule:
+SSH Port 22
+Source: SG1-PUBLIC
+
+Activities Performed:
+• Launched Private Server
+• Disabled Public IP assignment
+• Configured restricted SSH access
+
+Outcome:
+✔ Private Server deployed successfully.
+✔ No Public IP assigned.
+✔ Protected from direct Internet access.
+
+16) Validate Bastion Host Connectivity ✅
+
+Purpose: Verify Internet accessibility of the Bastion Host.
+
+Activities Performed:
+• Connected successfully to Bastion-Server-01
+• Verified server login
+
+Validation Command:
+
+hostname -i
+Output: 10.0.1.248
+
+Outcome:
+✔ Bastion Host accessible from the Internet
+✔ SSH connectivity verified.
+
+17) Validate Bastion to Private Server Connectivity ✅
+
+Purpose: Verify communication between Public and Private Subnets.
+Activities Performed:
+
+Executed:  telnet 10.0.2.242 22
+
+Outcome:
+✔ Connection successful
+✔ Port 22 reachable
+✔ Security Groups validated
+✔ Route Tables validated
+✔ Subnet communication verified
+
+18) Transfer Private Key to Bastion Host ✅
+
+Purpose: Prepare Bastion Host for secure connectivity to Private Server.
+Activities Performed:
+
+• Copied KP2-Private.pem to Bastion Host
+• Configured permissions:
+
+chmod 400 KP2-Private.pem
+
+Outcome:
+✔ Private key configured successfully
+
+19) SSH from Bastion Host to Private Server ✅
+
+Purpose:  Validate end-to-end secure access to the Private Server.
+
+Command Executed:  ssh -i KP2-Private.pem ec2-user@ip-10-0-2-242.ec2.internal
+
+🟪 Validation Command:
+
+hostname -i
+🟩 Output: 10.0.2.242
+
+Outcome:
+✔ SSH authentication successful
+✔ Login successful
+✔ Internal DNS resolution successful
+✔ Bastion Host to Private Server communication verified.
+
+
+Connectivity Validation
+
+Validation 1
+
+Laptop
+
+↓
+
+Bastion-Server-01
+
+Outcome: ✔ Successful
+
+Validation 2
+
+Bastion-Server-01
+
+↓
+
+Private-Server-01
+
+Outcome: ✔ Successful
+
+Validation 3
+
+Laptop
+
+↓
+
+Private-Server-01
+
+Outcome: ❌ ✘ Not Possible
+
+Reason:
+
+No Public IP assigned
+Protected by Private Subnet architecture.
+
+🟦 IP Address Summary
+
+Bastion Host
+Private IP: 10.0.1.248
+Public IP: 52.55.23.243
+Subnet: Public-Subnet-02
+
+Private Server
+Private IP: 10.0.2.242
+Public IP: Not Assigned
+Subnet: Private-Subnet-02
+
+🟢 Validation  Project Outcome
+
+✔ Created Custom VPC
+✔ Created Public Subnet
+✔ Created Private Subnet
+✔ Configured Internet Gateway
+✔ Configured Public Route Table
+✔ Configured Private Route Table
+✔ Deployed Bastion Host
+✔ Deployed Private Server
+✔ Implemented Security Group Referencing
+✔ Verified Public Subnet Connectivity
+✔ Verified Private Subnet Connectivity
+✔ Verified Bastion Host Architecture
+✔ Verified Private Server Protection
+✔ Verified SSH Communication Between Subnets
+✔ Validated Production-Style AWS Network Design
+🏆 AWS Network Project - 2 Completed Successfully
