@@ -1,0 +1,384 @@
+AWS Project - 4 🟡 Amazon EMR on EC2 Architecture
+##################################################
+
+✅ What is Amazon EMR
+
+EMR (Elastic MapReduce) is a managed Big Data service provided by AWS that allows organizations to run large-scale data processing frameworks such as Hadoop, Spark, Hive, and HBase on a cluster of Amazon EC2 instances.
+AWS automatically provisions, configures, and manages the cluster, reducing the effort required to build and maintain a traditional Hadoop environment.
+
+EMR = Group of EC2 Machines + Hadoop Ecosystem Software
+
+
+✅ Why is it called Elastic MapReduce?
+
+Elastic
+
+Cluster size can be increased or decreased based on workload.
+Additional nodes can be added when more processing power is required.
+Unused nodes can be removed to reduce cost.
+
+MapReduce
+
+A distributed data processing framework introduced by Hadoop.
+Processes large datasets across multiple machines in parallel.
+
+Although EMR originally focused on MapReduce, today it supports many Big Data technologies such as,
+
+Hadoop
+Spark
+Hive
+HBase
+Livy
+Trino
+Presto
+Flink
+
+
+✅ What is Amazon EMR Used For?
+
+Amazon EMR is commonly used for:
+
+Big Data Processing
+Data Analytics
+Log Analysis
+Data Warehousing
+Machine Learning
+ETL (Extract, Transform, Load)
+Batch Processing
+Real-Time Data Processing
+
+
+✅ Architecture Diagram
+
+Project Objective :
+
+Deploy an Amazon EMR Cluster using the EMR on EC2 deployment model to perform distributed data processing using Hadoop, Spark, Hive, and HBase.
+The environment should allow administrators to connect to the Primary Node through SSH, validate Big Data services, create Hive databases, verify HDFS functionality, execute Spark jobs, access EMR web interfaces, and safely terminate the cluster after testing.
+
+
+                            Internet
+                                    |
+                                    |
+                                    v
+
+                          My-IGW-02
+                      (Internet Gateway)
+                                    |
+                                    |
+                                    v
+
++------------------------------------------------------+
+|                     My-VPC-02                        |
+|                    10.0.0.0/16                       |
++------------------------------------------------------+
+
+                    Public-RT-02
+          0.0.0.0/0  --> Internet Gateway
+                                    |
+                                    |
+                                    v
+
+                     Public-Subnet-02
+                        10.0.1.0/24
+                         us-east-1d
+                                    |
+                                    |
+                                    v
+
+                  +------------------------+
+                  |  Amazon EMR on EC2     |
+                  |       Cluster          |
+                  +------------------------+
+                               |
+                               |
+                               v
+
+                    +------------------+
+                    |   Primary Node   |
+                    |   r8g.xlarge     |
+                    +------------------+
+
+                    • NameNode (NN)
+                    • YARN ResourceManager
+                    • Cluster Metadata
+                    • EMR Management Services
+                    • Spark Master
+                    • Hive Services
+                    • HBase Services
+                    • Web UI Hosting
+                    • SSH Administration
+
+                               |
+               ----------------------------------
+               |                                |
+               |                                |
+               v                                v
+
+     +--------------------+         +--------------------+
+     |     Core Node      |         |     Task Node      |
+     |    r8g.xlarge      |         |    r8g.xlarge      |
+     +--------------------+         +--------------------+
+
+     • DataNode                      • NodeManager
+     • NodeManager                   • Executes Spark Tasks
+     • HDFS Storage                  • Executes Hadoop Tasks
+     • Hadoop Processing             • Additional Compute Capacity
+     • Spark Processing              • No HDFS Storage
+     • Hive Query Processing
+
+--------------------------------------------------------------------------------------------------
+
+Our EMR Cluster contains 3 physical machines (EC2 instances):
+
+Physical Nodes (EC2 Machines)
+--------------------------------
+1) Primary Node = Cluster Management Layer
+2) Core Node    = Storage + Compute Layer
+3) Task Node    = Compute Layer Only
+
+Primary Node purpose is Cluster Management.
+Core Node purpose is Storage + Processing  (Stores Data And Processing Data).
+Task Node purpose is processing only (Additional worker added when extra processing power is needed).
+
+Points to Note :  
+---------------
+Node = Physical EC2 machine (server)
+Service = Software component running on that machine.
+
+Primary Node, Core Node, and Task Node are Physical EC2 Instances in the EMR cluster.
+NameNode, DataNode, ResourceManager, and NodeManager are services running on those nodes.
+
+-> Primary Node hosts NameNode and YARN ResourceManager services.
+-> Core Node hosts DataNode and NodeManager services.
+-> Task Node hosts only the NodeManager service.
+
+Primary Node  -> It is responsible for managing the entire cluster.
+Responsibilities : 
+Manages the entire cluster.
+Hosts the NameNode service which manages HDFS metadata.
+Receives user jobs
+Decides where jobs should run
+Allocates CPU and memory resources
+Hosts cluster management services and web interfaces
+Simple Understanding: Primary Node acts as the brain of the cluster because all job scheduling, resource allocation, and cluster management decisions originate from this node.
+
+Core Node -> Core Node is responsible for storing and processing data.
+Responsibilities :
+Stores HDFS data
+Processes Hadoop jobs
+Processes Spark jobs
+
+Simple Understanding:  Core Node provides both storage and compute.
+
+Hive Note :
+-----------
+Hive Service runs on the Primary Node.
+The actual query execution can happen on the Core Node and Task Node through Hadoop/YARN/Spark depending on the execution engine used.
+
+Task Node -> Task Node is responsible only for processing data.
+Responsibilities:
+Executes Spark tasks
+Executes Hadoop tasks
+Does not store HDFS data.
+Runs NodeManager service only.
+Provides additional compute capacity
+
+Simple Understanding: Task Node is an additional worker added when more processing power is required.
+
+Services Running on Primary Node
+---------------------------------
+NameNode
+YARN ResourceManager
+Spark Master
+Hive Services
+HBase Services
+EMR Management Services
+Note : NameNode and YARN ResourceManager are the most important services running on the Primary Node for Hadoop and YARN operations.
+
+Services Running on Core Node
+------------------------------
+DataNode.
+NodeManager.
+
+Services Running on Task Node
+------------------------------
+NodeManager.
+
+NameNode ->  It is a Hadoop service that runs on the Primary Node.
+Responsibilities:
+Stores HDFS metadata
+Maintains file system information
+Tracks data block locations
+Knows where data is stored
+
+Example:
+If a file named customer.csv is stored in HDFS, the NameNode knows where the data is stored but does not store the actual file data.
+The NameNode knows:
+Block-1 stored on Core Node
+Block-2 stored on Core Node
+Simple Understanding:  NameNode is like a library catalog that knows where every book is stored.
+
+DataNode -> It is a Hadoop service that runs on the Core Node.
+Responsibilities:
+DataNode stores the actual data blocks that make up files in HDFS.
+Reads data
+Writes data
+Maintains data blocks
+
+Example: Files such as:
+sales.csv
+transaction.csv
+employee.csv
+log files
+are physically stored on the DataNode.
+Simple Understanding:
+
+YARN ResourceManager ->  YARN ResourceManager is a YARN service that runs on the Primary Node.
+Responsibilities:
+Receives processing requests
+Schedules jobs
+Allocates resources (CPU + MEMORY)
+Monitors cluster activity
+Assigns work to NodeManagers running on Core and Task Nodes.
+Simple Understanding: ResourceManager acts like a project manager who assigns work to employees.
+
+NodeManager on Core Node -> It is a YARN service that runs on the Core Node.
+Responsibilities:
+Executes tasks assigned by the YARN ResourceManager.
+Monitors CPU utilization.
+Monitors memory utilization.
+Reports status to the ResourceManager.
+Launches and manages containers used for job execution.
+Works together with the DataNode service to process data stored in HDFS.
+Simple Understanding: NodeManager on the Core Node processes jobs and works directly with data stored on the same node.
+
+NodeManager on Task Node -> It is a YARN service that runs on the Task Node.
+Responsibilities:
+Executes tasks assigned by the YARN ResourceManager
+Monitors CPU utilization
+Monitors memory utilization
+Reports status to the ResourceManager
+Launches and manages containers used for job execution
+Provides additional processing capacity during heavy workloads
+
+Important:
+No DataNode service exists on the Task Node
+No HDFS data is stored on the Task Node
+Note :  Task Node does not contain the DataNode service  and therefore does not store HDFS data.
+Simple Understanding: NodeManager on the Task Node helps process workloads but does not store any HDFS data.
+                      NodeManager acts like a team supervisor responsible for executing assigned work.
+
+How a Job is Processed
+------------------------
+Step 1 :  User submits a Spark or Hadoop job.
+Step 2 : ResourceManager running on the Primary Node receives the request.
+Step 3 : ResourceManager decides where the work should run.
+Step 4 : NodeManagers running on the Core Node and Task Node execute the assigned tasks.
+Step 5 : Data is read from the DataNode running on the Core Node.
+Step 6 : Results are returned to the user.
+
+Node Summary
+=================
+
+Primary Node
+NameNode
+Job Scheduling
+YARN ResourceManager
+Cluster Management
+Metadata Management
+
+Core Node
+DataNode
+NodeManager
+Data Storage
+Data Processing
+
+Task Node
+NodeManager
+Processing Only
+No Data Storage
+
+Points to Remember: 
+
+Primary Node, Core Node, and Task Node are physical EC2 machines.
+NameNode, DataNode, ResourceManager, and NodeManager are software services running on those machines.
+
+
+Important Note
+------------------
+
+1) A Primary Node failure can impact the entire cluster because NameNode and ResourceManager services run on this node.
+2) A Core Node failure can impact data storage and processing because DataNode and NodeManager services run on this node.
+3) A Task Node failure impacts only processing capacity because it does not store HDFS data.
+
+Primary Node Verification
+----------------------------
+
+Login to the Primary Node and run:
+
+Verify Running Hadoop Processes:
+jps
+
+Expected Services:
+NameNode
+ResourceManager
+
+Verify HDFS Status:
+hdfs dfsadmin -report
+
+Expected:
+Live DataNodes
+HDFS Capacity Information
+
+Verify YARN Nodes:
+yarn node -list
+Expected : 
+Core Node registered
+Task Node registered
+
+Check Listening Ports:
+sudo ss -tulpn
+
+Important Ports:
+8088 = YARN ResourceManager UI
+9870 = HDFS NameNode UI
+18080 = Spark History Server UI
+8998 = Livy UI
+16010 = HBase UI
+
+Verify Hadoop Version:
+hadoop version
+
+Verify Spark Version:
+spark-submit --version
+
+Verify Hive Version:
+hive --version
+
+Verify HBase Version:
+hbase version
+
+
+Core Node Verification
+-----------------------
+Login to the Core Node and run:
+jps
+
+Expected Services:
+DataNode
+NodeManager
+
+Verify Storage:
+df -h
+
+Verify Attached Disks:
+lsblk
+
+Task Node Verification
+-------------------------
+Login to the Task Node and run:
+jps
+
+Expected Services:
+NodeManager
+
