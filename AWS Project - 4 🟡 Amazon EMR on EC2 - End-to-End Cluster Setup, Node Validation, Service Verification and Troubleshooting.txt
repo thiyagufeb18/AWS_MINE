@@ -1,0 +1,527 @@
+AWS Project - 4 🟡 Amazon EMR on EC2 - Implementation Steps
+#############################################################
+
+📌 Project Objective
+Deploy an Amazon EMR Cluster using the EMR on EC2 deployment model to perform distributed data processing using Hadoop, Spark, Hive, HBase, and Livy.
+
+🟢 The environment should allow administrators to:
+---------------------------------------------------
+✔ Connect to the Primary Node using SSH.
+✔ Validate Hadoop ecosystem services.
+✔ Validate HDFS and YARN services.
+✔ Validate Spark, Hive, HBase, and Livy.
+✔ Identify Primary, Core, and Task Nodes.
+✔ Create Hive databases.
+✔ Perform HDFS read/write operations.
+✔ Execute Spark applications.
+✔ Verify service placement across nodes.
+✔ Verify cluster health.
+✔ Verify storage allocation.
+✔Terminate the cluster after testing.
+
+
+Task 1 - Create Amazon EMR Cluster ✅
+--------------------------------------
+Objective: Create an Amazon EMR cluster using the EMR on EC2 deployment model.
+
+Activities Performed:
+Logged into AWS Management Console.
+Navigated to Amazon EMR.
+Selected EMR on EC2.
+Clicked Create Cluster.
+
+🟪 Cluster Configuration
+Cluster Name : EMR-Hadoop-Spark-Cluster
+EMR Release  :  EMR 7.7.0
+Applications Selected:
+Hadoop 3.4.0
+Spark 3.5.3
+Hive 3.1.3
+HBase 2.6.1
+Livy 0.8.0
+
+🟪 Cluster Topology
+Primary Node : 1 × r8g.xlarge
+Core Node 	 : 1 × r8g.xlarge
+Task Node    : 1 × r8g.xlarge
+Total Nodes: 3
+
+🟪 Storage Configuration
+Root Volume 		: 30 GB gp3
+Additional Volume   : 32 GB
+Additional Volume   : 32 GB
+
+🟪 Cluster Scaling Configuration
+Manual Cluster Size
+Uniform Instance Groups
+On-Demand Instances
+High Availability Disabled
+Outcome: Amazon EMR Cluster created successfully.
+
+Task 2 - Configure Bootstrap Action ✅
+--------------------------------------
+Objective: Install administrative packages during cluster provisioning.
+
+Bootstrap Script -> s3://chennai-dba-community/install-packages.sh
+
+🟪 Bootstrap Script Contents:
+
+#!/bin/bash
+sudo yum install -y telnet stress
+echo "Java Version:" java -version
+echo "Python Version:" python3 --version
+
+Validation:
+Command: cat /mnt/var/log/bootstrap-actions/1/stdout
+
+Observations:
+Telnet package already installed.
+Java available.
+Python available.
+Stress package unavailable in repository.
+
+Outcome: Bootstrap Action executed successfully.
+
+Task 3 - Configure Networking ✅
+------------------------------
+
+🟪 Reused Infrastructure:
+VPC My-VPC-02
+Subnet Public-Subnet-02
+Internet Gateway My-IGW-02
+Route Table Public-RT-02
+Key Pair KP3-ASG
+
+🟪 Security Groups
+Primary Node
+ElasticMapReduce-master
+ASG-SG
+Core and Task Nodes
+ElasticMapReduce-slave
+
+Purpose:
+ElasticMapReduce-master
+Used for EMR internal communication.
+Supports NameNode, ResourceManager, Hive, HBase and Livy services.
+
+ElasticMapReduce-slave
+Used for DataNode and NodeManager communication.
+ASG-SG
+Used for SSH access from administrator workstation.
+Outcome: EMR Cluster deployed successfully using existing AWS networking components.
+
+Task 4 - Configure IAM Roles ✅
+-----------------------------
+EMR Service Role Created     : AmazonEMR-ServiceRole
+EC2 Instance Profile Created : AmazonEMR-InstanceProfile
+
+Purpose:
+Allow Amazon EMR to provision and manage AWS resources.
+Allow EC2 instances to access S3 buckets, bootstrap scripts, and EMR log locations.
+Outcome: IAM roles configured successfully.
+
+Task 5 - Configure Automatic Cluster Termination ✅
+--------------------------------------------------
+Configuration: Automatically terminate cluster after idle time.
+Idle Timeout: 4 Hours
+
+Purpose:
+Prevent unnecessary AWS charges.
+Automatically remove idle resources.
+Outcome: Auto-termination configured successfully.
+
+Task 6 - Configure Cluster Logging ✅
+-----------------------------------
+Log Location:
+S3 Bucket: aws-logs-242901278433-us-east-1
+
+Prefix:
+elasticmapreduce
+
+Purpose:
+Cluster monitoring
+Troubleshooting
+Diagnostics
+Outcome: Cluster logging enabled successfully.
+
+Task 7 - Connect to Primary Node Using SSH ✅
+-------------------------------------------
+Activities Performed:
+Obtained Public DNS of Primary Node.
+Connected using SSH.
+
+Command: ssh -i KP3-ASG.pem hadoop@
+
+Validation Commands:
+hostname
+whoami
+
+Output:
+hostname
+ip-10-0-1-114
+
+whoami
+hadoop
+
+Observation:
+EMR 7.7.0 uses hadoop user for SSH connectivity.
+Outcome: Successfully connected to Primary Node.
+
+Task 8 - Validate Installed Applications ✅
+-----------------------------------------
+
+🟪 Java Validation
+Command: java -version
+Version: OpenJDK 1.8.0_512
+Outcome: Java validated successfully.
+
+🟪 Python Validation
+Command: python3 --version
+Version: Python 3.7.16
+Outcome: Python validated successfully.
+
+🟪 Hadoop Validation
+Command:hadoop version
+Version: Hadoop 3.4.0-amzn-3
+Outcome:Hadoop validated successfully.
+
+🟪 Spark Validation
+Command: spark-submit --version
+Version: Spark 3.5.3-amzn-1
+Outcome: Spark validated successfully.
+
+🟪 Hive Validation
+Command:  hive --version
+Version: Hive 3.1.3-amzn-16
+Outcome: Hive validated successfully.
+
+🟪 HBase Validation
+Command: hbase version
+Version: HBase 2.6.1-amzn-1
+Observation:
+SLF4J and Log4J warnings appeared, however HBase version information was successfully returned.
+Outcome: HBase validated successfully.
+
+Task 9 - Identify Physical Nodes ✅
+---------------------------------
+
+Primary Node Identification
+Command: hdfs getconf -namenodes
+Output: 
+ip-10-0-1-114.ec2.internal
+Primary Node: ip-10-0-1-114
+
+Core Node Identification
+Command: hdfs dfsadmin -report
+Output: 
+Live datanodes (1)
+ip-10-0-1-227.ec2.internal
+Core Node: ip-10-0-1-227
+Reason: Only Core Nodes run the DataNode service.
+
+Task Node Identification
+Command: yarn node -list
+Output:
+ip-10-0-1-147.ec2.internal
+ip-10-0-1-227.ec2.internal
+Since ip-10-0-1-227 was already identified as the Core Node, the remaining node ip-10-0-1-147 was identified as the Task Node.
+
+Task Node:
+ip-10-0-1-147
+Outcome: Successfully identified all cluster nodes.
+
+Task 10 - Validate Primary Node Services ✅
+-----------------------------------------
+Node: ip-10-0-1-114
+Commands:
+systemctl status hadoop-hdfs-namenode
+systemctl status hadoop-yarn-resourcemanager
+
+Result:
+NameNode = Running
+ResourceManager = Running
+
+Commands:
+systemctl status hadoop-hdfs-datanode
+systemctl status hadoop-yarn-nodemanager
+
+Result:
+DataNode = Inactive
+NodeManager = Inactive
+Process Validation:
+ps -ef | egrep 'namenode|resourcemanager|datanode|nodemanager'
+
+Output:
+org.apache.hadoop.hdfs.server.namenode.NameNode
+org.apache.hadoop.yarn.server.resourcemanager.ResourceManager
+
+Outcome:
+Primary Node services validated successfully.
+
+Task 11 - Validate Core Node Services ✅
+--------------------------------------
+
+Node: ip-10-0-1-227
+
+Commands:
+systemctl status hadoop-hdfs-datanode
+systemctl status hadoop-yarn-nodemanager
+
+Result:
+DataNode = Running
+NodeManager = Running
+
+Commands:
+systemctl status hadoop-hdfs-namenode
+systemctl status hadoop-yarn-resourcemanager
+
+Result:
+NameNode = Inactive
+ResourceManager = Inactive
+
+Process Validation:
+ps -ef | egrep 'datanode|nodemanager'
+
+Output:
+org.apache.hadoop.hdfs.server.datanode.DataNode
+org.apache.hadoop.yarn.server.nodemanager.NodeManager
+Outcome: Core Node services validated successfully.
+
+Task 12 - Validate Task Node Services ✅
+----------------------------------------
+Node: ip-10-0-1-147
+Commands:
+systemctl status hadoop-yarn-nodemanager
+
+Result:
+NodeManager = Running
+
+Commands:
+systemctl status hadoop-hdfs-datanode
+systemctl status hadoop-hdfs-namenode
+systemctl status hadoop-yarn-resourcemanager
+
+Result:
+DataNode = Inactive
+NameNode = Inactive
+ResourceManager = Inactive
+
+🟪 Process Validation:
+ps -ef | egrep 'namenode|resourcemanager|datanode|nodemanager'
+Output:org.apache.hadoop.yarn.server.nodemanager.NodeManager
+Outcome: Task Node services validated successfully.
+
+Task 13 - Validate HDFS ✅
+-------------------------
+Validate NameNode:
+hdfs getconf -namenodes
+
+Output: ip-10-0-1-114.ec2.internal
+
+🟪 Validate DataNode:
+hdfs dfsadmin -report
+Output:
+Live DataNodes = 1
+Validate HDFS Capacity:
+
+hdfs dfs -df -h
+Output:
+57.87 GB
+
+🟪 Validate HDFS Health:
+hdfs fsck /
+Output: Status: HEALTHY
+
+Observations:
+Missing Blocks = 0
+Corrupt Blocks = 0
+Under Replicated Blocks = 0
+Outcome: HDFS validated successfully.
+
+Task 14 - Validate HDFS Read and Write Operations ✅
+-------------------------------------------------
+Create Test File:
+echo "EMR Testing" > test.txt
+
+Create HDFS Directory:
+hdfs dfs -mkdir /test
+
+Upload File:
+hdfs dfs -put test.txt /test
+
+Verify Upload:
+hdfs dfs -ls /test
+
+Read File:
+hdfs dfs -cat /test/test.txt
+
+Output: EMR Testing
+Outcome: HDFS Read and Write operations validated successfully.
+
+Task 15 - Validate YARN ✅
+-------------------------
+List Registered Worker Nodes:
+
+yarn node -list
+Output:
+ip-10-0-1-227
+ip-10-0-1-147
+
+🟪 Application Validation:
+yarn application -list
+Output: 0 Running Applications before Spark execution.
+
+🟪 Queue Validation:
+yarn queue -status root
+Result:
+CapacityScheduler
+Queue State = RUNNING
+Capacity = 100%
+Outcome: YARN validated successfully.
+
+Task 16 - Validate Spark ✅
+-------------------------
+
+🟪Version Validation:
+spark-submit --version
+
+🟪 Version:
+Spark 3.5.3-amzn-1
+
+Spark Sample Job:
+spark-submit /usr/lib/spark/examples/src/main/python/pi.py 10
+
+Output:
+Pi is roughly 3.141440
+
+🟪 Observation:
+Spark application submitted successfully through YARN.
+ResourceManager scheduled the workload.
+Core Node and Task Node participated in execution.
+Outcome: Distributed Spark processing validated successfully.
+
+Task 17 - Validate Hive ✅
+------------------------
+Launch Hive:
+
+hive Commands Executed:
+show databases;
+create database sample;
+show databases;
+Result:
+default
+sample
+
+Observation:
+Hive database creation completed successfully from Primary Node.
+
+Core Node Test:
+show databases;
+Result:
+FAILED: Unable to instantiate SessionHiveMetaStoreClient
+
+Task Node Test:
+show databases;
+Result:
+FAILED: Unable to instantiate SessionHiveMetaStoreClient
+
+Conclusion:Hive metadata operations are managed through the Primary Node.
+Outcome:Hive validated successfully.
+
+Task 18 - Validate HBase ✅
+------------------------- 
+
+Command: hbase version
+Version: HBase 2.6.1-amzn-1
+Outcome: HBase validated successfully.
+
+Task 19 - Validate EMR Application Services ✅
+---------------------------------------------
+Command: sudo ss -tulpn | egrep '8088|9870|18080|8998|16010'
+
+Verified Services:
+9870 = HDFS NameNode UI
+8088 = YARN ResourceManager UI
+18080 = Spark History Server
+8998 = Livy
+16010 = HBase Master UI
+
+Observation: Application services were listening only on the Primary Node.
+Outcome: EMR services validated successfully.
+
+Task 20 - Validate Storage Configuration ✅
+-----------------------------------------
+Commands:
+df -TH
+lsblk
+
+Observations:
+Root Volume = 30 GB
+Additional Volume = 32 GB
+Additional Volume = 32 GB
+
+Mounted Filesystems:
+/
+/emr
+/mnt
+/mnt1
+Outcome: Storage configuration validated successfully.
+
+Task 21 - Troubleshooting and Lessons Learned ✅
+----------------------------------------------
+
+Issue: Unable to connect through SSH.
+Root Cause:  Public IP address changed and Security Group contained the old source IP.
+Resolution: Updated SSH inbound rule with current public IP.
+
+Issue: Unable to access EMR application UIs directly. 
+Root Cause: EMR Block Public Access enabled.
+Resolution: Used SSH-based validation and identified UI service ports.
+
+Issue: Expected Hadoop daemon names not displayed through jps.
+Observation: 
+Output displayed:
+Main
+Jps
+
+Resolution:
+Used: systemctl status  and  ps -ef | egrep 'namenode|resourcemanager|datanode|nodemanager'
+for accurate service validation.
+
+Task 22 - Terminate Cluster ✅
+-----------------------------
+Activities Performed:
+Amazon EMR → Clusters → Terminate Cluster
+Lifecycle Observed:
+Starting
+Bootstrapping
+Waiting
+Terminating
+Terminated
+Outcome: EMR Cluster terminated successfully.
+
+Project Outcome : Successfully deployed and validated a complete Amazon EMR 7.7.0 environment. ✅
+----------------------------------------------------------------------------------------------
+
+Validated:
+✔ Primary Node Architecture
+✔ Core Node Architecture
+✔ Task Node Architecture
+✔ Hadoop
+✔ HDFS
+✔ YARN
+✔ Spark
+✔ Hive
+✔ HBase
+✔ Livy
+✔ Node Role Identification
+✔ HDFS Read/Write Operations
+✔ HDFS Health
+✔ Spark Distributed Processing
+✔Hive Metadata Operations
+✔ YARN Scheduling
+✔ Storage Layout
+✔ EMR Service Placement
+✔ Networking and Security Concepts
+
+🏆 AWS Project - 4 Amazon EMR on EC2 Completed Successfully.
