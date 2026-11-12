@@ -1,0 +1,1441 @@
+🎯 Introduction - Amazon EMR on EC2 Deployment Using AWS CLI: End-to-End Cluster Provisioning, Validation, and Node Verification Guide.
+-----------------------------------------------------------------------------------------------------------------------------------------
+
+This document demonstrates the complete deployment and validation of an Amazon EMR (Elastic MapReduce) cluster on AWS using 
+the AWS Command Line Interface (CLI). The objective of this exercise is to provision a fully functional EMR environment, 
+validate all prerequisite AWS resources, create the cluster through automation, 
+and verify the successful operation of the Primary, Core, and Task nodes.
+
+The implementation covers validation of AWS authentication, IAM roles, instance profiles, EC2 key pairs, networking components, and security groups 
+before cluster deployment. A reusable shell script is then created to automate EMR cluster provisioning with Hadoop, Spark, Hive, HBase, 
+and Livy applications. After deployment, the cluster status, node configuration, EC2 instances, networking details, 
+and operational readiness are verified using AWS CLI commands.
+
+This document serves as a practical reference for cloud engineers, database administrators, and big data administrators 
+who want to understand and implement Amazon EMR cluster deployment, infrastructure validation, cluster monitoring, and node identification entirely 
+through command-line automation.
+
+🎯 Project Objectives
+👉 Validate AWS account access and CLI authentication.
+👉 Verify EMR Service Role and EC2 Instance Profile configurations.
+👉 Confirm availability of Key Pairs, Subnet, and Security Groups.v
+👉 Create a reusable AWS CLI deployment script.
+👉 Deploy an Amazon EMR cluster with Hadoop, Spark, Hive, HBase, and Livy.
+👉 Verify cluster creation and operational status.
+👉 Identify and validate Primary, Core, and Task nodes.
+👉 Retrieve cluster and instance details.
+👉 Monitor cluster lifecycle and health.
+👉 Demonstrate complete EMR administration using AWS CLI automation
+
+
+Task 1 - Verify AWS CLI Authentication ✅
+-----------------------------------------
+🟢 Purpose : Verify AWS CLI authentication and confirm the AWS account currently being used.
+👉 Command : aws sts get-caller-identity
+
+~ $ aws sts get-caller-identity
+{
+    "UserId": "242901278433",
+    "Account": "242901278433",
+    "Arn": "arn:aws:iam::242901278433:root"
+}
+
+📌 Why We Executed It ?
+Before creating any EMR resources, it is important to confirm that AWS CLI authentication is working and that the correct AWS account is being used.
+
+📌 What This Command Validates: 
+🔸AWS CLI authentication
+🔸AWS Account ID
+🔸IAM identity
+🔸Active AWS session
+
+Observed Output:
+🔸UserId  : 242901278433
+🔸Account : 242901278433
+🔸ARN     : arn:aws:iam::242901278433:root
+
+➡ Outcome: AWS CLI authentication validated successfully.  
+
+Task 1.2 - List Available EMR Roles ✅
+------------------------------------
+🟢 Purpose : Identify the EMR Service Role available in the AWS account before validating its configuration.
+👉 Command : aws iam list-roles --query "Roles[?contains(RoleName,'EMR')].RoleName" --output table
+
+$ aws iam list-roles --query "Roles[?contains(RoleName,'EMR')].RoleName" --output table
+-----------------------------------------------
+|                  ListRoles                  |
++---------------------------------------------+
+|  AmazonEMR-InstanceProfile-20261103T150337  |
+|  AmazonEMR-InstanceProfile-20261106T174438  |
+|  AmazonEMR-InstanceProfile-20261110T222658  |
+|  AmazonEMR-InstanceProfile-20261111T114932  |
+|  AmazonEMR-ServiceRole-20261103T150355      |
+|  AmazonEMR-ServiceRole-20261106T174457      |
+|  AmazonEMR-ServiceRole-20261110T222717      |
+|  AmazonEMR-ServiceRole-20261111T114949      |
+|  AWSServiceRoleForEMRCleanup                |
+|  EMR-Service-Role                           |
++---------------------------------------------+
+
+📌 Why We Executed It ?
+Before validating a specific EMR role, we first identified all EMR-related IAM roles available in the AWS account. 
+This helped determine the correct Service Role and Instance Profile to be used for EMR cluster creation..
+
+📌 What This Command Validates:
+🔸Availability of EMR IAM Roles
+🔸Available EMR Instance Profiles
+🔸Available EMR Service Roles
+🔸EMR prerequisites already configured in AWS
+
+➡ Outcome: Multiple EMR Service Roles and Instance Profiles were available 
+The role AmazonEMR-ServiceRole-20261110T222717 was selected for validation and cluster deployment.
+
+
+Task 2 - Verify EMR Service Role ✅
+-----------------------------------
+🟢 Purpose :  Verify the Amazon EMR Service Role before cluster creation.
+👉 Command : aws iam list-roles --query "Roles[?contains(RoleName,'EMR')].RoleName" --output table
+
+$ aws iam get-role \
+> --role-name AmazonEMR-ServiceRole-20261110T222717
+{
+    "Role": {
+        "Path": "/service-role/",
+        "RoleName": "AmazonEMR-ServiceRole-20261110T222717",
+        "RoleId": "AROATRDQLL3QYWWB2D2OQ",
+        "Arn": "arn:aws:iam::242901278433:role/service-role/AmazonEMR-ServiceRole-20261110T222717",
+        "CreateDate": "2026-11-10T16:57:17+00:00",
+        "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {
+                        "Service": "elasticmapreduce.amazonaws.com"
+                    },
+                    "Action": "sts:AssumeRole"
+                }
+            ]
+        },
+        "MaxSessionDuration": 3600,
+        "RoleLastUsed": {
+            "LastUsedDate": "2026-11-10T18:17:16+00:00",
+            "Region": "us-east-1"
+        }
+    }
+}
+
+📌 Why We Executed It ?
+The EMR Service Role allows Amazon EMR to interact with AWS services such as EC2, IAM, CloudWatch, and S3 during cluster provisioning and operation. 
+Verifying the role ensures the cluster can be created successfully.
+
+📌 What This Command Validates:
+🔸Role existence
+🔸Role ARN
+🔸Trust relationship with Amazon EMR
+🔸Role creation details
+🔸Last used information
+
+Observed Output:
+🔸Role Name : AmazonEMR-ServiceRole-20261110T222717
+🔸Service Principal : elasticmapreduce.amazonaws.com
+
+➡ Outcome: EMR Service Role validated successfully.
+
+
+Task 3 - Verify EC2 Key Pair ✅
+-----------------------------
+🟢 Purpose: Verify the Key Pair used for SSH access.
+👉 Command aws ec2 describe-key-pairs --key-names KP3-ASG
+
+~ $
+~ $ aws ec2 describe-key-pairs \
+> --key-names KP3-ASG
+{
+    "KeyPairs": [
+        {
+            "KeyPairId": "key-0f0607a9b4de2b8a0",
+            "KeyType": "rsa",
+            "Tags": [],
+            "CreateTime": "2026-10-19T21:58:41.575000+00:00",
+            "KeyName": "KP3-ASG",
+            "KeyFingerprint": "b8:8a:0e:5a:1d:c1:ad:0e:3a:4e:23:8f:44:35:3d:72:b8:8b:88:34"
+        }
+    ]
+}
+
+📌 Why We Executed It ?
+The Primary Node will be accessed through SSH after cluster creation.
+
+📌 What This Command Validates:
+🔸Key Pair exists
+🔸Key Pair name is correct
+🔸SSH access can be configured
+
+Observed Output:
+🔸Key Name : KP3-ASG
+🔸Key Type : RSA
+
+➡ Outcome: SSH Key Pair validated successfully.
+
+
+Task 4 - Verify EMR Instance Profile ✅
+-------------------------------------
+🟢 Purpose : Verify the IAM Instance Profile attached to EMR nodes.
+👉 Command : aws iam get-instance-profile --instance-profile-name AmazonEMR-InstanceProfile-20261110T222658
+
+ $ aws iam get-instance-profile \
+> --instance-profile-name AmazonEMR-InstanceProfile-20261110T222658
+{
+    "InstanceProfile": {
+        "Path": "/",
+        "InstanceProfileName": "AmazonEMR-InstanceProfile-20261110T222658",
+        "InstanceProfileId": "AIPATRDQLL3QUVA3JCOBD",
+        "Arn": "arn:aws:iam::242901278433:instance-profile/AmazonEMR-InstanceProfile-20261110T222658",
+        "CreateDate": "2026-11-10T16:57:01+00:00",
+        "Roles": [
+            {
+                "Path": "/service-role/",
+                "RoleName": "AmazonEMR-InstanceProfile-20261110T222658",
+                "RoleId": "AROATRDQLL3QWEP5I7CY2",
+                "Arn": "arn:aws:iam::242901278433:role/service-role/AmazonEMR-InstanceProfile-20261110T222658",
+                "CreateDate": "2026-11-10T16:57:01+00:00",
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": "ec2.amazonaws.com"
+                            },
+                            "Action": "sts:AssumeRole"
+                        }
+                    ]
+                }
+            }
+        ],
+        "Tags": []
+    }
+}
+
+📌 Why We Executed It ?
+Primary, Core and Task nodes need permissions to access AWS resources such as S3, Bootstrap scripts and EMR logs.
+
+📌 What This Command Validates:
+🔸Instance Profile exists
+🔸IAM Role attached successfully
+🔸EC2 trust relationship configured
+
+Observed Output:
+🔸Instance Profile Name : AmazonEMR-InstanceProfile-20261110T222658
+🔸Trusted Service : ec2.amazonaws.com
+
+➡ Outcome: EMR Instance Profile validated successfully.
+
+Task 5 - Verify Subnet Configuration ✅
+-------------------------------------
+🟢 Purpose : Verify the subnet selected for cluster deployment.
+👉 Command : aws ec2 describe-subnets --subnet-ids subnet-04e1d4297c776f5eb
+
+ $ aws ec2 describe-subnets \
+> --subnet-ids subnet-04e1d4297c776f5eb
+{
+    "Subnets": [
+        {
+            "AvailabilityZoneId": "use1-az6",
+            "MapCustomerOwnedIpOnLaunch": false,
+            "OwnerId": "242901278433",
+            "AssignIpv6AddressOnCreation": false,
+            "Ipv6CidrBlockAssociationSet": [],
+            "Tags": [
+                {
+                    "Key": "Name",
+                    "Value": "Public-Subnet-02"
+                }
+            ],
+            "SubnetArn": "arn:aws:ec2:us-east-1:242901278433:subnet/subnet-04e1d4297c776f5eb",
+            "EnableDns64": false,
+            "Ipv6Native": false,
+            "PrivateDnsNameOptionsOnLaunch": {
+                "HostnameType": "ip-name",
+                "EnableResourceNameDnsARecord": false,
+                "EnableResourceNameDnsAAAARecord": false
+            },
+            "BlockPublicAccessStates": {
+                "InternetGatewayBlockMode": "off"
+            },
+            "SubnetId": "subnet-04e1d4297c776f5eb",
+            "State": "available",
+            "VpcId": "vpc-065a4a11082a0b899",
+            "CidrBlock": "10.0.1.0/24",
+            "AvailableIpAddressCount": 251,
+            "AvailabilityZone": "us-east-1d",
+            "DefaultForAz": false,
+            "MapPublicIpOnLaunch": true
+        }
+    ]
+}
+
+
+📌 Why We Executed It ?
+The EMR cluster must be deployed into the correct VPC and Subnet.
+
+📌 What This Command Validates:
+🔸Subnet availability
+🔸CIDR block
+🔸Availability Zone
+🔸Public IP assignment
+
+Observed Output:
+🔸Subnet : Public-Subnet-02
+🔸CIDR : 10.0.1.0/24
+🔸Availability Zone : us-east-1d
+🔸Public IP Assignment : Enabled
+
+➡ Outcome: Subnet configuration validated successfully.
+
+--
+
+Task 6 - Verify Security Groups ✅
+-----------------------------------
+🟢 Purpose : Verify Security Groups that will be attached to the cluster.
+👉 Command : aws ec2 describe-security-groups --group-ids sg-0a4e45d14aed4215e sg-058282bd2b2287271 sg-0deb3931b70dac7d0
+
+$ aws ec2 describe-security-groups \
+> --group-ids \
+> sg-0a4e45d14aed4215e \
+> sg-058282bd2b2287271 \
+> sg-0deb3931b70dac7d0
+{
+    "SecurityGroups": [
+        {
+            "GroupId": "sg-0deb3931b70dac7d0",
+            "IpPermissionsEgress": [
+                {
+                    "IpProtocol": "-1",
+                    "UserIdGroupPairs": [],
+                    "IpRanges": [
+                        {
+                            "CidrIp": "0.0.0.0/0"
+                        }
+                    ],
+                    "Ipv6Ranges": [],
+                    "PrefixListIds": []
+                }
+            ],
+            "VpcId": "vpc-065a4a11082a0b899",
+            "SecurityGroupArn": "arn:aws:ec2:us-east-1:242901278433:security-group/sg-0deb3931b70dac7d0",
+            "OwnerId": "242901278433",
+            "GroupName": "ASG-SG",
+            "Description": "Security Group for ASG EC2 Instances",
+            "IpPermissions": [
+                {
+                    "IpProtocol": "tcp",
+                    "FromPort": 80,
+                    "ToPort": 80,
+                    "UserIdGroupPairs": [
+                        {
+                            "UserId": "242901278433",
+                            "GroupId": "sg-0478f5a35ff5dda51"
+                        }
+                    ],
+                    "IpRanges": [],
+                    "Ipv6Ranges": [],
+                    "PrefixListIds": []
+                },
+                {
+                    "IpProtocol": "tcp",
+                    "FromPort": 22,
+                    "ToPort": 22,
+                    "UserIdGroupPairs": [],
+                    "IpRanges": [
+                        {
+                            "CidrIp": "152.57.81.65/32"
+                        },
+                        {
+                            "CidrIp": "49.47.218.196/32"
+                        },
+                        {
+                            "CidrIp": "157.51.146.66/32"
+                        }
+                    ],
+                    "Ipv6Ranges": [],
+                    "PrefixListIds": []
+                }
+            ]
+        },
+        {
+            "GroupId": "sg-0a4e45d14aed4215e",
+            "IpPermissionsEgress": [
+                {
+                    "IpProtocol": "-1",
+                    "UserIdGroupPairs": [],
+                    "IpRanges": [
+                        {
+                            "CidrIp": "0.0.0.0/0"
+                        }
+                    ],
+                    "Ipv6Ranges": [],
+                    "PrefixListIds": []
+                }
+            ],
+            "Tags": [
+                {
+                    "Key": "for-use-with-amazon-emr-managed-policies",
+                    "Value": "true"
+                }
+            ],
+            "VpcId": "vpc-065a4a11082a0b899",
+            "SecurityGroupArn": "arn:aws:ec2:us-east-1:242901278433:security-group/sg-0a4e45d14aed4215e",
+            "OwnerId": "242901278433",
+            "GroupName": "ElasticMapReduce-master",
+            "Description": "Master group for Elastic MapReduce created on 2026-11-03T03:14:17.376Z",
+            "IpPermissions": [
+                {
+                    "IpProtocol": "tcp",
+                    "FromPort": 0,
+                    "ToPort": 65535,
+                    "UserIdGroupPairs": [
+                        {
+                            "UserId": "242901278433",
+                            "GroupId": "sg-0a4e45d14aed4215e"
+                        },
+                        {
+                            "UserId": "242901278433",
+                            "GroupId": "sg-058282bd2b2287271"
+                        }
+                    ],
+                    "IpRanges": [],
+                    "Ipv6Ranges": [],
+                    "PrefixListIds": []
+                },
+                {
+                    "IpProtocol": "tcp",
+                    "FromPort": 22,
+                    "ToPort": 22,
+                    "UserIdGroupPairs": [],
+                    "IpRanges": [
+                        {
+                            "Description": "Source : 0.0.0.0/0",
+                            "CidrIp": "152.57.80.18/32"
+                        },
+                        {
+                            "CidrIp": "157.51.146.66/32"
+                        }
+                    ],
+                    "Ipv6Ranges": [],
+                    "PrefixListIds": []
+                },
+                {
+                    "IpProtocol": "tcp",
+                    "FromPort": 8443,
+                    "ToPort": 8443,
+                    "UserIdGroupPairs": [],
+                    "IpRanges": [],
+                    "Ipv6Ranges": [],
+                    "PrefixListIds": [
+                        {
+                            "PrefixListId": "pl-f8bd5e91"
+                        }
+                    ]
+                },
+                {
+                    "IpProtocol": "udp",
+                    "FromPort": 0,
+                    "ToPort": 65535,
+                    "UserIdGroupPairs": [
+                        {
+                            "UserId": "242901278433",
+                            "GroupId": "sg-0a4e45d14aed4215e"
+                        },
+                        {
+                            "UserId": "242901278433",
+                            "GroupId": "sg-058282bd2b2287271"
+                        }
+                    ],
+                    "IpRanges": [],
+                    "Ipv6Ranges": [],
+                    "PrefixListIds": []
+                },
+                {
+                    "IpProtocol": "icmp",
+                    "FromPort": -1,
+                    "ToPort": -1,
+                    "UserIdGroupPairs": [
+                        {
+                            "UserId": "242901278433",
+                            "GroupId": "sg-058282bd2b2287271"
+                        },
+                        {
+                            "UserId": "242901278433",
+                            "GroupId": "sg-0a4e45d14aed4215e"
+                        }
+                    ],
+                    "IpRanges": [],
+                    "Ipv6Ranges": [],
+                    "PrefixListIds": []
+                }
+            ]
+        },
+        {
+            "GroupId": "sg-058282bd2b2287271",
+            "IpPermissionsEgress": [
+                {
+                    "IpProtocol": "-1",
+                    "UserIdGroupPairs": [],
+                    "IpRanges": [
+                        {
+                            "CidrIp": "0.0.0.0/0"
+                        }
+                    ],
+                    "Ipv6Ranges": [],
+                    "PrefixListIds": []
+                }
+            ],
+            "Tags": [
+                {
+                    "Key": "for-use-with-amazon-emr-managed-policies",
+                    "Value": "true"
+                }
+            ],
+            "VpcId": "vpc-065a4a11082a0b899",
+            "SecurityGroupArn": "arn:aws:ec2:us-east-1:242901278433:security-group/sg-058282bd2b2287271",
+            "OwnerId": "242901278433",
+            "GroupName": "ElasticMapReduce-slave",
+            "Description": "Slave group for Elastic MapReduce created on 2026-11-03T03:14:17.376Z",
+            "IpPermissions": [
+                {
+                    "IpProtocol": "tcp",
+                    "FromPort": 0,
+                    "ToPort": 65535,
+                    "UserIdGroupPairs": [
+                        {
+                            "UserId": "242901278433",
+                            "GroupId": "sg-0a4e45d14aed4215e"
+                        },
+                        {
+                            "UserId": "242901278433",
+                            "GroupId": "sg-058282bd2b2287271"
+                        }
+                    ],
+                    "IpRanges": [],
+                    "Ipv6Ranges": [],
+                    "PrefixListIds": []
+                },
+                {
+                    "IpProtocol": "tcp",
+                    "FromPort": 22,
+                    "ToPort": 22,
+                    "UserIdGroupPairs": [],
+                    "IpRanges": [
+                        {
+                            "CidrIp": "157.51.146.66/32"
+                        },
+                        {
+                            "CidrIp": "57.51.146.66/32"
+                        }
+                    ],
+                    "Ipv6Ranges": [],
+                    "PrefixListIds": []
+                },
+                {
+                    "IpProtocol": "udp",
+                    "FromPort": 0,
+                    "ToPort": 65535,
+                    "UserIdGroupPairs": [
+                        {
+                            "UserId": "242901278433",
+                            "GroupId": "sg-0a4e45d14aed4215e"
+                        },
+                        {
+                            "UserId": "242901278433",
+                            "GroupId": "sg-058282bd2b2287271"
+                        }
+                    ],
+                    "IpRanges": [],
+                    "Ipv6Ranges": [],
+                    "PrefixListIds": []
+                },
+                {
+                    "IpProtocol": "icmp",
+                    "FromPort": -1,
+                    "ToPort": -1,
+                    "UserIdGroupPairs": [
+                        {
+                            "UserId": "242901278433",
+                            "GroupId": "sg-058282bd2b2287271"
+                        },
+                        {
+                            "UserId": "242901278433",
+                            "GroupId": "sg-0a4e45d14aed4215e"
+                        }
+                    ],
+                    "IpRanges": [],
+                    "Ipv6Ranges": [],
+                    "PrefixListIds": []
+                }
+            ]
+        }
+    ]
+}
+(END)
+
+📌 Why We Executed It ?
+Security Groups control network communication between EMR nodes and administrator access.
+
+📌 What This Command Validates:
+🔸SSH access
+🔸Internal node communication
+🔸Hadoop traffic
+🔸YARN traffic
+
+🎯 Security Groups Identified:
+ASG-SG
+Purpose
+🔸SSH access from administrator machine
+
+🎯 ElasticMapReduce-master
+Purpose:
+🔸Primary Node communication
+🔸NameNode communication
+🔸ResourceManager communication
+
+🎯 ElasticMapReduce-slave
+Purpose:
+🔸DataNode communication
+🔸NodeManager communication
+🔸Core and Task Node internal communication
+
+➡ Outcome: Security Groups validated successfully.
+
+Task 7 - Create EMR Cluster Creation Script ✅
+---------------------------------------------
+🟢 Purpose : Create a reusable shell script for cluster deployment.
+👉 Command : cat > emr-create.sh
+
+~ $ cat > emr-create.sh
+aws emr create-cluster \
+ --name "EMR-Hadoop-Spark-Cluster" \
+ --log-uri "s3://aws-logs-242901278433-us-east-1/elasticmapreduce" \
+ --release-label "emr-6.8.0" \
+ --service-role "arn:aws:iam::242901278433:role/service-role/AmazonEMR-ServiceRole-20261110T222717" \
+ --ec2-attributes '{"InstanceProfile":"AmazonEMR-InstanceProfile-20261110T222658","EmrManagedMasterSecurityGroup":"sg-0a4e45d14aed4215e","EmrManagedSlaveSecurityGroup":"sg-058282bd2b2287271","KeyName":"KP3-ASG","AdditionalMasterSecurityGroups":["sg-0deb3931b70dac7d0"],"AdditionalSlaveSecurityGroups":[],"SubnetIds":["subnet-04e1d4297c776f5eb"]}' \
+ --tags 'Project=EMR-Practice' 'for-use-with-amazon-emr-managed-policies=true' \
+ --applications Name=HBase Name=Hadoop Name=Hive Name=Livy Name=Spark \
+ --configurations '[{"Classification":"spark-hive-site","Properties":{"hive.metastore.client.factory.class":"com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory"}}]' \
+ --instance-groups '[{"InstanceCount":1,"InstanceGroupType":"CORE","Name":"Core","InstanceType":"r6g.xlarge"},{"InstanceCount":1,"InstanceGroupType":"MASTER","Name":"Primary","InstanceType":"r6g.xlarge"},{"InstanceCount":1,"InstanceGroupType":"TASK","Name":"Task","InstanceType":"r6g.xlarge"}]' \
+ --scale-down-behavior "TERMINATE_AT_TASK_COMPLETION" \
+Why we w --ebs-root-volume-size "30" \
+
+Why we w --region "us-east-1"~ $ 
+ 
+ 
+📌 Why we executed It ?
+To automate cluster creation and avoid manually typing a long AWS CLI command repeatedly.
+
+📌 What This Command Validates
+🔸script creation
+🔸Infrastructure automation preparation
+
+➡ Outcome: EMR deployment script created successfully.
+
+Task 8 - Make Script Executable ✅
+--------------------------------
+🟢 Purpose : Allow execution of the shell script.
+👉 Command : chmod +x emr-create.sh
+
+~ $ chmod +x emr-create.sh
+~ $ ls -lrt
+total 8
+-rw-r--r--. 1 cloudshell-user cloudshell-user   13 Sep 14 20:21 F1.txt
+-rwxr-xr-x. 1 cloudshell-user cloudshell-user 1360 Nov 11 16:27 emr-create.sh
+
+📌 Why We Executed It ?
+Linux scripts require execute permission before they can be run.
+
+Validation:
+ls -lrt
+
+Observed Output:
+emr-create.sh displayed with executable permissions.
+
+➡ Outcome -> Script execution permission assigned successfully. 
+
+Task 9 - Create EMR Cluster Using AWS CLI ✅
+--------------------------------------------
+🟢 Purpose : Provision the EMR cluster through automation.
+👉 Command : ./emr-create.sh
+
+~ $ ./emr-create.sh
+{
+    "ClusterId": "j-069736837A1D0SV29D9C",
+    "ClusterArn": "arn:aws:elasticmapreduce:us-east-1:242901278433:cluster/j-069736837A1D0SV29D9C"
+}
+~ $
+
+📌 Why We Executed It ?
+To deploy the EMR cluster without using the AWS Console.
+
+What This Command Creates:
+🔸Primary Node
+🔸Core Node
+🔸Task Node
+🔸Hadoop
+🔸Spark
+🔸Hive
+🔸HBase
+🔸Livy
+
+Observed Output:
+🔸Cluster ID: j-069736837A1D0SV29D9C
+
+➡ Outcome -> EMR Cluster created successfully.
+
+
+Task 10 - Verify Cluster Status ✅
+----------------------------------
+🟢 Purpose : Verify cluster creation status.
+👉 Command : aws emr describe-cluster --cluster-id j-069736837A1D0SV29D9C --query 'Cluster.Status.State'
+
+$ aws emr describe-cluster \
+> --cluster-id j-069736837A1D0SV29D9C \
+> --query 'Cluster.Status.State'
+"WAITING"
+
+📌 Why We Executed It ?
+To verify whether cluster provisioning completed successfully.
+
+Observed Output:
+🔸WAITING
+
+Meaning:
+🔸Cluster ready to run workloads.
+
+➡ Outcome -> Cluster status validated successfully.
+
+
+Task 11 - Retrieve Complete Cluster Details ✅
+---------------------------------------------
+🟢 Purpose : Retrieve complete cluster configuration.
+👉 Command : aws emr describe-cluster --cluster-id j-069736837A1D0SV29D9C
+
+~ $ 
+~ $ aws emr describe-cluster \
+> --cluster-id j-069736837A1D0SV29D9C
+{
+    "Cluster": {
+        "Id": "j-069736837A1D0SV29D9C",
+        "Name": "EMR-Hadoop-Spark-Cluster",
+        "Status": {
+            "State": "WAITING",
+            "StateChangeReason": {
+                "Message": "Cluster ready to run steps."
+            },
+            "Timeline": {
+                "CreationDateTime": "2026-11-11T16:28:16.492000+00:00",
+                "ReadyDateTime": "2026-11-11T16:33:10.021000+00:00"
+            }
+        },
+        "Ec2InstanceAttributes": {
+            "Ec2KeyName": "KP3-ASG",
+            "Ec2SubnetId": "subnet-04e1d4297c776f5eb",
+            "RequestedEc2SubnetIds": [
+                "subnet-04e1d4297c776f5eb"
+            ],
+            "Ec2AvailabilityZone": "us-east-1d",
+            "RequestedEc2AvailabilityZones": [],
+            "IamInstanceProfile": "AmazonEMR-InstanceProfile-20261110T222658",
+            "EmrManagedMasterSecurityGroup": "sg-0a4e45d14aed4215e",
+            "EmrManagedSlaveSecurityGroup": "sg-058282bd2b2287271",
+            "AdditionalMasterSecurityGroups": [
+                "sg-0deb3931b70dac7d0"
+            ]
+        },
+        "InstanceCollectionType": "INSTANCE_GROUP",
+        "LogUri": "s3n://aws-logs-242901278433-us-east-1/elasticmapreduce/",
+        "ReleaseLabel": "emr-6.8.0",
+        "AutoTerminate": false,
+        "TerminationProtected": false,
+        "UnhealthyNodeReplacement": true,
+        "VisibleToAllUsers": true,
+        "Applications": [
+            {
+                "Name": "HBase",
+                "Version": "2.4.12"
+            },
+            {
+                "Name": "Hadoop",
+                "Version": "3.2.1"
+            },
+            {
+                "Name": "Hive",
+                "Version": "3.1.3"
+            },
+            {
+                "Name": "Livy",
+                "Version": "0.7.1"
+            },
+            {
+                "Name": "Spark",
+                "Version": "3.3.0"
+            }
+        ],
+        "Tags": [
+            {
+                "Key": "Project",
+                "Value": "EMR-Practice"
+            },
+            {
+                "Key": "for-use-with-amazon-emr-managed-policies",
+                "Value": "true"
+            }
+        ],
+        "ServiceRole": "arn:aws:iam::242901278433:role/service-role/AmazonEMR-ServiceRole-20261110T222717",
+        "NormalizedInstanceHours": 0,
+        "MasterPublicDnsName": "ec2-18-232-99-72.compute-1.amazonaws.com",
+        "Configurations": [
+            {
+                "Classification": "spark-hive-site",
+                "Properties": {
+                    "hive.metastore.client.factory.class": "com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory"
+                }
+            }
+        ],
+        "ScaleDownBehavior": "TERMINATE_AT_TASK_COMPLETION",
+        "EbsRootVolumeSize": 30,
+        "KerberosAttributes": {},
+        "ClusterArn": "arn:aws:elasticmapreduce:us-east-1:242901278433:cluster/j-069736837A1D0SV29D9C",
+        "StepConcurrencyLevel": 1,
+        "PlacementGroups": [],
+        "OSReleaseLabel": "2.0.20261102.0",
+        "SessionEnabled": false,
+        "BootstrapActions": [],
+        "InstanceGroups": [
+            {
+                "Id": "ig-04715383IH1NVFVLJUUQ",
+                "Name": "Task",
+                "Market": "ON_DEMAND",
+                "InstanceGroupType": "TASK",
+                "InstanceType": "r6g.xlarge",
+                "RequestedInstanceCount": 1,
+                "RunningInstanceCount": 1,
+                "Status": {
+                    "State": "RUNNING",
+                    "StateChangeReason": {
+                        "Message": ""
+                    },
+                    "Timeline": {
+                        "CreationDateTime": "2026-11-11T16:28:16.520000+00:00",
+                        "ReadyDateTime": "2026-11-11T16:33:11.332000+00:00"
+                    }
+                },
+                "Configurations": [],
+                "ConfigurationsVersion": 0,
+                "LastSuccessfullyAppliedConfigurations": [],
+                "LastSuccessfullyAppliedConfigurationsVersion": 0,
+                "EbsBlockDevices": [
+                    {
+                        "VolumeSpecification": {
+                            "VolumeType": "gp2",
+                            "SizeInGB": 32
+                        },
+                        "Device": "/dev/sdb"
+                    },
+                    {
+                        "VolumeSpecification": {
+                            "VolumeType": "gp2",
+                            "SizeInGB": 32
+                        },
+                        "Device": "/dev/sdc"
+                    }
+                ],
+                "ShrinkPolicy": {}
+            },
+            {
+                "Id": "ig-04505192WZ8GAM2LD1PM",
+                "Name": "Core",
+                "Market": "ON_DEMAND",
+                "InstanceGroupType": "CORE",
+                "InstanceType": "r6g.xlarge",
+                "RequestedInstanceCount": 1,
+                "RunningInstanceCount": 1,
+                "Status": {
+                    "State": "RUNNING",
+                    "StateChangeReason": {
+                        "Message": ""
+                    },
+                    "Timeline": {
+                        "CreationDateTime": "2026-11-11T16:28:16.519000+00:00",
+                        "ReadyDateTime": "2026-11-11T16:33:10.021000+00:00"
+                    }
+                },
+                "Configurations": [],
+                "ConfigurationsVersion": 0,
+                "LastSuccessfullyAppliedConfigurations": [],
+                "LastSuccessfullyAppliedConfigurationsVersion": 0,
+                "EbsBlockDevices": [
+                    {
+                        "VolumeSpecification": {
+                            "VolumeType": "gp2",
+                            "SizeInGB": 32
+                        },
+                        "Device": "/dev/sdb"
+                    },
+                    {
+                        "VolumeSpecification": {
+                            "VolumeType": "gp2",
+                            "SizeInGB": 32
+                        },
+                        "Device": "/dev/sdc"
+                    }
+                ],
+                "ShrinkPolicy": {}
+            },
+            {
+                "Id": "ig-052415921TTQZ5D9QGBO",
+                "Name": "Primary",
+                "Market": "ON_DEMAND",
+                "InstanceGroupType": "MASTER",
+                "InstanceType": "r6g.xlarge",
+                "RequestedInstanceCount": 1,
+                "RunningInstanceCount": 1,
+                "Status": {
+                    "State": "RUNNING",
+                    "StateChangeReason": {
+                        "Message": ""
+                    },
+                    "Timeline": {
+                        "CreationDateTime": "2026-11-11T16:28:16.520000+00:00",
+                        "ReadyDateTime": "2026-11-11T16:32:59.808000+00:00"
+                    }
+                },
+                "Configurations": [],
+                "ConfigurationsVersion": 0,
+                "LastSuccessfullyAppliedConfigurations": [],
+                "LastSuccessfullyAppliedConfigurationsVersion": 0,
+                "EbsBlockDevices": [
+                    {
+                        "VolumeSpecification": {
+                            "VolumeType": "gp2",
+                            "SizeInGB": 32
+                        },
+                        "Device": "/dev/sdb"
+                    },
+                    {
+                        "VolumeSpecification": {
+                            "VolumeType": "gp2",
+                            "SizeInGB": 32
+                        },
+                        "Device": "/dev/sdc"
+                    }
+                ],
+                "ShrinkPolicy": {}
+            }
+        ]
+    }
+}
+
+
+📌 Why We Executed It ?
+To validate the configuration applied during deployment.
+
+📌 What This Command Validates:
+🔸Cluster Name
+🔸EMR Version
+🔸Applications
+🔸Roles
+🔸Security Groups
+🔸Logging
+🔸Storage
+🔸Node Configuration
+
+➡ Outcome -> Cluster configuration validated successfully.
+
+Task 12 - List Active EMR Clusters ✅
+-------------------------------------
+🟢 Purpose : Verify active clusters.
+👉 Command : aws emr list-clusters --active
+
+~ $ 
+~ $ aws emr list-clusters --active
+{
+    "Clusters": [
+        {
+            "Id": "j-069736837A1D0SV29D9C",
+            "Name": "EMR-Hadoop-Spark-Cluster",
+            "Status": {
+                "State": "WAITING",
+                "StateChangeReason": {
+                    "Message": "Cluster ready to run steps."
+                },
+                "Timeline": {
+                    "CreationDateTime": "2026-11-11T16:28:16.492000+00:00",
+                    "ReadyDateTime": "2026-11-11T16:33:10.021000+00:00"
+                }
+            },
+            "NormalizedInstanceHours": 0,
+            "ClusterArn": "arn:aws:elasticmapreduce:us-east-1:242901278433:cluster/j-069736837A1D0SV29D9C"
+        }
+    ]
+}
+
+📌 Why We Executed It ?
+To confirm cluster visibility.
+
+Observed Output:
+🔸Cluster State:
+🔸WAITING
+
+➡ Outcome -> Active cluster validated successfully.
+
+Task 13 - Retrieve Cluster Instances ✅
+--------------------------------------
+🟢 Purpose : Identify physical EC2 instances belonging to the cluster.
+👉 Command : aws emr list-instances --cluster-id j-069736837A1D0SV29D9C
+
+~ $ 
+~ $ aws emr list-instances \
+> --cluster-id j-069736837A1D0SV29D9C
+{
+    "Instances": [
+        {
+            "Id": "ci-04174213TGPGPGCMK0A0",
+            "Ec2InstanceId": "i-0d1312a1940a31794",
+            "PublicDnsName": "ec2-34-229-234-209.compute-1.amazonaws.com",
+            "PublicIpAddress": "34.229.234.209",
+            "PrivateDnsName": "ip-10-0-1-252.ec2.internal",
+            "PrivateIpAddress": "10.0.1.252",
+            "Status": {
+                "State": "RUNNING",
+                "StateChangeReason": {},
+                "Timeline": {
+                    "CreationDateTime": "2026-11-11T16:28:25.039000+00:00",
+                    "ReadyDateTime": "2026-11-11T16:32:55.189000+00:00"
+                }
+            },
+            "InstanceGroupId": "ig-04505192WZ8GAM2LD1PM",
+            "Market": "ON_DEMAND",
+            "InstanceType": "r6g.xlarge",
+            "EbsVolumes": [
+                {
+                    "Device": "/dev/sdb",
+                    "VolumeId": "vol-031e2e97d1d16a77c"
+                },
+                {
+                    "Device": "/dev/sdc",
+                    "VolumeId": "vol-029ab579cd3ddf379"
+                }
+            ]
+        },
+        {
+            "Id": "ci-05062211R7KTZI7ATU8U",
+            "Ec2InstanceId": "i-0c722ec273b5f4096",
+            "PublicDnsName": "ec2-18-232-99-72.compute-1.amazonaws.com",
+            "PublicIpAddress": "18.232.99.72",
+            "PrivateDnsName": "ip-10-0-1-235.ec2.internal",
+            "PrivateIpAddress": "10.0.1.235",
+            "Status": {
+                "State": "RUNNING",
+                "StateChangeReason": {},
+                "Timeline": {
+                    "CreationDateTime": "2026-11-11T16:28:25.059000+00:00",
+                    "ReadyDateTime": "2026-11-11T16:32:59.808000+00:00"
+                }
+            },
+            "InstanceGroupId": "ig-052415921TTQZ5D9QGBO",
+            "Market": "ON_DEMAND",
+            "InstanceType": "r6g.xlarge",
+            "EbsVolumes": [
+                {
+                    "Device": "/dev/sdc",
+                    "VolumeId": "vol-04ddd592755395e00"
+                },
+                {
+                    "Device": "/dev/sdb",
+                    "VolumeId": "vol-0808f871219e585b1"
+                }
+            ]
+        },
+        {
+            "Id": "ci-041720229JGWHE02SX8U",
+            "Ec2InstanceId": "i-02b00545543ea45bc",
+            "PublicDnsName": "ec2-50-17-96-202.compute-1.amazonaws.com",
+            "PublicIpAddress": "50.17.96.202",
+            "PrivateDnsName": "ip-10-0-1-102.ec2.internal",
+            "PrivateIpAddress": "10.0.1.102",
+            "Status": {
+                "State": "RUNNING",
+                "StateChangeReason": {},
+                "Timeline": {
+                    "CreationDateTime": "2026-11-11T16:28:25.064000+00:00",
+                    "ReadyDateTime": "2026-11-11T16:32:55.188000+00:00"
+                }
+            },
+            "InstanceGroupId": "ig-04715383IH1NVFVLJUUQ",
+            "Market": "ON_DEMAND",
+            "InstanceType": "r6g.xlarge",
+            "EbsVolumes": [
+                {
+                    "Device": "/dev/sdb",
+                    "VolumeId": "vol-06785476709168452"
+                },
+                {
+                    "Device": "/dev/sdc",
+                    "VolumeId": "vol-09c9d6a8ca27b2a3b"
+                }
+            ]
+        }
+    ]
+}
+
+
+📌 Why We Executed It ?
+
+To retrieve:
+🔸EC2 Instance IDs
+🔸Public DNS Names
+🔸Private IP Addresses
+🔸Node Mapping
+
+➡ Outcome -> Cluster instances validated successfully.
+
+
+Task 14 - Identify Primary Node ✅
+--------------------------------
+🟢 Purpose : Identify the Primary Node.
+👉 Command : aws emr list-instances --cluster-id j-069736837A1D0SV29D9C --instance-group-types MASTER
+
+~ $ 
+~ $ 
+
+$ aws emr list-instances \
+> --cluster-id j-069736837A1D0SV29D9C \
+> --instance-group-types MASTER
+{
+    "Instances": [
+        {
+            "Id": "ci-05062211R7KTZI7ATU8U",
+            "Ec2InstanceId": "i-0c722ec273b5f4096",
+            "PublicDnsName": "ec2-18-232-99-72.compute-1.amazonaws.com",
+            "PublicIpAddress": "18.232.99.72",
+            "PrivateDnsName": "ip-10-0-1-235.ec2.internal",
+            "PrivateIpAddress": "10.0.1.235",
+            "Status": {
+                "State": "RUNNING",
+                "StateChangeReason": {},
+                "Timeline": {
+                    "CreationDateTime": "2026-11-11T16:28:25.059000+00:00",
+                    "ReadyDateTime": "2026-11-11T16:32:59.808000+00:00"
+                }
+            },
+            "InstanceGroupId": "ig-052415921TTQZ5D9QGBO",
+            "Market": "ON_DEMAND",
+            "InstanceType": "r6g.xlarge",
+            "EbsVolumes": [
+                {
+                    "Device": "/dev/sdc",
+                    "VolumeId": "vol-04ddd592755395e00"
+                },
+                {
+                    "Device": "/dev/sdb",
+                    "VolumeId": "vol-0808f871219e585b1"
+                }
+            ]
+        }
+    ]
+}
+
+
+📌 Why We Executed It ?
+To retrieve the Primary Node details.
+
+Observed Output:
+🔸Public DNS Name
+🔸Public IP Address
+🔸Private IP Address
+
+Primary Node:
+🔸10.0.1.235
+
+➡ Outcome -> Primary Node identified successfully.
+
+
+Task 15 - Identify Core Node ✅
+-----------------------------
+
+🟢 Purpose :  Identify the Core Node.
+👉 Command : aws emr list-instances --cluster-id j-069736837A1D0SV29D9C --instance-group-types CORE
+
+~ $ 
+~ $ aws emr list-instances \
+> --cluster-id j-069736837A1D0SV29D9C \
+> --instance-group-types CORE
+{
+    "Instances": [
+        {
+            "Id": "ci-04174213TGPGPGCMK0A0",
+            "Ec2InstanceId": "i-0d1312a1940a31794",
+            "PublicDnsName": "ec2-34-229-234-209.compute-1.amazonaws.com",
+            "PublicIpAddress": "34.229.234.209",
+            "PrivateDnsName": "ip-10-0-1-252.ec2.internal",
+            "PrivateIpAddress": "10.0.1.252",
+            "Status": {
+                "State": "RUNNING",
+                "StateChangeReason": {},
+                "Timeline": {
+                    "CreationDateTime": "2026-11-11T16:28:25.039000+00:00",
+                    "ReadyDateTime": "2026-11-11T16:32:55.189000+00:00"
+                }
+            },
+            "InstanceGroupId": "ig-04505192WZ8GAM2LD1PM",
+            "Market": "ON_DEMAND",
+            "InstanceType": "r6g.xlarge",
+            "EbsVolumes": [
+                {
+                    "Device": "/dev/sdb",
+                    "VolumeId": "vol-031e2e97d1d16a77c"
+                },
+                {
+                    "Device": "/dev/sdc",
+                    "VolumeId": "vol-029ab579cd3ddf379"
+                }
+            ]
+        }
+    ]
+}
+
+📌 Why We Executed It ?
+To retrieve Core Node details.
+
+Observed Output:
+🔸Core Node:
+🔸10.0.1.252
+
+➡ Outcome -> Core Node identified successfully.
+
+
+
+Task 16 - Identify Task Node ✅
+--------------------------------
+🟢 Purpose : Identify the Task Node.
+👉 Command : aws emr list-instances --cluster-id j-069736837A1D0SV29D9C --instance-group-types TASK
+
+~ $ 
+~ $ 
+~ $ aws emr list-instances \
+> --cluster-id j-069736837A1D0SV29D9C \
+> --instance-group-types TASK
+{
+    "Instances": [
+        {
+            "Id": "ci-041720229JGWHE02SX8U",
+            "Ec2InstanceId": "i-02b00545543ea45bc",
+            "PublicDnsName": "ec2-50-17-96-202.compute-1.amazonaws.com",
+            "PublicIpAddress": "50.17.96.202",
+            "PrivateDnsName": "ip-10-0-1-102.ec2.internal",
+            "PrivateIpAddress": "10.0.1.102",
+
+
+
+
+
+📌 Why We Executed It ?
+To retrieve Task Node details.
+
+Observed Output:
+🔸Task Node:
+🔸10.0.1.102
+
+➡ Outcome ->  Task Node identified successfully.
+
+Task 17 - Monitor Cluster Continuously ✅
+--------------------------------------------
+🟢 Purpose : Monitor cluster lifecycle.
+👉 Command : watch -n 30 "aws emr describe-cluster --cluster-id j-069736837A1D0SV29D9C --query 'Cluster.Status.State'"
+
+Every 30.0s: aws emr describe-cluster --cluster-id j-069736837A1D0SV29D9C --query 'Cluster.Status.State'                                                 
+ip-10-135-45-161.us-east-1.compute.internal: Wed Nov 11 16:42:01 2026
+
+"WAITING"
+
+📌 Why We Executed It ?
+To continuously observe cluster state changes.
+
+Observed Output:
+🔸WAITING
+
+➡ Outcome -> Cluster monitoring validated successfully.
+
+
+Task 18 - Retrieve Primary Node DNS ✅
+--------------------------------------
+🟢 Purpose : Quickly retrieve the DNS required for SSH connectivity.
+👉 Command : aws emr list-instances --cluster-id j-069736837A1D0SV29D9C --instance-group-types MASTER --query 'Instances[*].PublicDnsName'
+
+~ $ aws emr list-instances \
+> --cluster-id j-069736837A1D0SV29D9C \
+> --instance-group-types MASTER \
+> --query 'Instances[*].PublicDnsName'
+[
+    "ec2-18-232-99-72.compute-1.amazonaws.com"
+]
+~ $ 
+
+Observed Output:
+🔸ec2-18-232-99-72.compute-1.amazonaws.com
+
+➡ Outcome -> Primary Node DNS retrieved successfully.
+
+Re-list all cluster instances for a final status check ✅
+--------------------------------------------------------
+
+$ aws emr list-instances \
+> --cluster-id j-069736837A1D0SV29D9C
+{
+    "Instances": [
+        {
+            "Id": "ci-04174213TGPGPGCMK0A0",
+            "Ec2InstanceId": "i-0d1312a1940a31794",
+            "PublicDnsName": "ec2-34-229-234-209.compute-1.amazonaws.com",
+            "PublicIpAddress": "34.229.234.209",
+            "PrivateDnsName": "ip-10-0-1-252.ec2.internal",
+            "PrivateIpAddress": "10.0.1.252",
+            "Status": {
+                "State": "RUNNING",
+                "StateChangeReason": {},
+                "Timeline": {
+                    "CreationDateTime": "2026-11-11T16:28:25.039000+00:00",
+                    "ReadyDateTime": "2026-11-11T16:32:55.189000+00:00"
+                }
+            },
+            "InstanceGroupId": "ig-04505192WZ8GAM2LD1PM",
+            "Market": "ON_DEMAND",
+            "InstanceType": "r6g.xlarge",
+            "EbsVolumes": [
+                {
+                    "Device": "/dev/sdb",
+                    "VolumeId": "vol-031e2e97d1d16a77c"
+                },
+                {
+                    "Device": "/dev/sdc",
+                    "VolumeId": "vol-029ab579cd3ddf379"
+                }
+            ]
+        },
+        {
+            "Id": "ci-05062211R7KTZI7ATU8U",
+            "Ec2InstanceId": "i-0c722ec273b5f4096",
+            "PublicDnsName": "ec2-18-232-99-72.compute-1.amazonaws.com",
+            "PublicIpAddress": "18.232.99.72",
+            "PrivateDnsName": "ip-10-0-1-235.ec2.internal",
+            "PrivateIpAddress": "10.0.1.235",
+            "Status": {
+                "State": "RUNNING",
+                "StateChangeReason": {},
+                "Timeline": {
+                    "CreationDateTime": "2026-11-11T16:28:25.059000+00:00",
+                    "ReadyDateTime": "2026-11-11T16:32:59.808000+00:00"
+                }
+            },
+            "InstanceGroupId": "ig-052415921TTQZ5D9QGBO",
+            "Market": "ON_DEMAND",
+            "InstanceType": "r6g.xlarge",
+            "EbsVolumes": [
+                {
+                    "Device": "/dev/sdc",
+                    "VolumeId": "vol-04ddd592755395e00"
+                },
+                {
+                    "Device": "/dev/sdb",
+                    "VolumeId": "vol-0808f871219e585b1"
+                }
+            ]
+        },
+        {
+            "Id": "ci-041720229JGWHE02SX8U",
+            "Ec2InstanceId": "i-02b00545543ea45bc",
+            "PublicDnsName": "ec2-50-17-96-202.compute-1.amazonaws.com",
+            "PublicIpAddress": "50.17.96.202",
+            "PrivateDnsName": "ip-10-0-1-102.ec2.internal",
+            "PrivateIpAddress": "10.0.1.102",
+            "Status": {
+                "State": "RUNNING",
+                "StateChangeReason": {},
+                "Timeline": {
+                    "CreationDateTime": "2026-11-11T16:28:25.064000+00:00",
+                    "ReadyDateTime": "2026-11-11T16:32:55.188000+00:00"
+                }
+            },
+            "InstanceGroupId": "ig-04715383IH1NVFVLJUUQ",
+            "Market": "ON_DEMAND",
+            "InstanceType": "r6g.xlarge",
+            "EbsVolumes": [
+                {
+                    "Device": "/dev/sdb",
+                    "VolumeId": "vol-06785476709168452"
+                },
+                {
+                    "Device": "/dev/sdc",
+                    "VolumeId": "vol-09c9d6a8ca27b2a3b"
+                }
+            ]
+        }
+    ]
+}
+
+~ $ 
+
+
+🎯 Amazon EMR on EC2 - AWS CLI Commands and Validation Checklist ✅
+-------------------------------------------------------------------
+
++-------------------+-------------------------------------------+--------------------------------------------------------+
+| Area              | Command                                   | Purpose                                                |
++-------------------+-------------------------------------------+--------------------------------------------------------+
+| Identity          | aws sts get-caller-identity               | Verify AWS authentication and account access           |
+| IAM Role          | aws iam get-role                          | Verify EMR Service Role existence                      |
+| Key Pair          | aws ec2 describe-key-pairs              	| Verify SSH Key Pair                                    |
+| Instance Profile  | aws iam get-instance-profile              | Verify EMR EC2 Instance Profile                        |
+| Subnet            | aws ec2 describe-subnets                  | Verify subnet, AZ and Auto Public IP                   |
+| Security Groups   | aws ec2 describe-security-groups          | Verify SSH and EMR communication rules                 |
+| Create Script     | cat > emr-create.sh                       | Create reusable EMR deployment script                  |
+| Execute Script    | ./emr-create.sh                           | Create EMR Cluster using AWS CLI                       |
+| Cluster Status    | aws emr describe-cluster                  | Verify cluster reaches WAITING state                   |
+| Cluster Details   | aws emr describe-cluster                  | Verify configuration and applications                  |
+| Active Clusters   | aws emr list-clusters --active            | Verify active cluster                                  |
+| All Instances     | aws emr list-instances                    | Retrieve all EMR EC2 instances                         |
+| Primary Node      | aws emr list-instances --MASTER           | Retrieve Primary Node details                          |
+| Core Node         | aws emr list-instances --CORE             | Retrieve Core Node details                             |
+| Task Node         | aws emr list-instances --TASK             | Retrieve Task Node details                             |
+| Monitoring        | watch -n 30 ...                           | Continuously monitor cluster lifecycle                 |
+| DNS Retrieval     | aws emr list-instances --MASTER --query   | Retrieve Primary Node DNS for SSH access               |
++-------------------+-------------------------------------------+--------------------------------------------------------+
+
+
+👉 Successfully deployed and managed an Amazon EMR cluster entirely using AWS CLI.
+
+Validated:
+
+✔ AWS CLI authentication
+✔ EMR Service Role
+✔ EC2 Instance Profile
+✔ Key Pair
+✔ Subnet configuration
+✔ Security Groups
+✔ EMR cluster provisioning
+✔ Cluster monitoring
+✔ Primary Node identification
+✔ Core Node identification
+✔ Task Node identification
+✔ Infrastructure automation through AWS CLI
+
+🏆 AWS Project - 4A Amazon EMR on EC2 - AWS CLI Deployment Completed Successfully.
+
+
+🎯 Project Outcome
+Successfully provisioned and validated an Amazon EMR cluster consisting of Primary, Core, and Task nodes, deployed entirely through AWS CLI automation. 
+The environment was configured with Hadoop, Spark, Hive, HBase, and Livy, and all infrastructure components 
+required for cluster operation were validated successfully. 
+
+This project demonstrates practical implementation of EMR cluster deployment, administration, monitoring, 
+and node verification using Infrastructure-as-Code and command-line management practices.
