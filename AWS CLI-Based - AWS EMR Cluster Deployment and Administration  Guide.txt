@@ -625,10 +625,9 @@ aws emr create-cluster \
  --configurations '[{"Classification":"spark-hive-site","Properties":{"hive.metastore.client.factory.class":"com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory"}}]' \
  --instance-groups '[{"InstanceCount":1,"InstanceGroupType":"CORE","Name":"Core","InstanceType":"r6g.xlarge"},{"InstanceCount":1,"InstanceGroupType":"MASTER","Name":"Primary","InstanceType":"r6g.xlarge"},{"InstanceCount":1,"InstanceGroupType":"TASK","Name":"Task","InstanceType":"r6g.xlarge"}]' \
  --scale-down-behavior "TERMINATE_AT_TASK_COMPLETION" \
-Why we w --ebs-root-volume-size "30" \
-
-Why we w --region "us-east-1"~ $ 
- 
+ --ebs-root-volume-size "30" \
+ --region "us-east-1"
+  
  
 📌 Why we executed It ?
 To automate cluster creation and avoid manually typing a long AWS CLI command repeatedly.
